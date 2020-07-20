@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format2.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="2">
+    <name>fastslam2</name>
+    <version>0.0.0</version>
+    <description>fastslam2 node</description>
+    <maintainer email="brookes@brookes.tech">Brookes</maintainer>
+    <license>UNLICENSED</license>
+    <url type="website">https://gitlab.com/obr-a/integration/fastslam2</url>
+    <author email="brookes@brookes.tech">Brookes</author>
+
+    <exec_depend>helpers</exec_depend>
+    <exec_depend>msgs</exec_depend>
+    <exec_depend>rclcpp</exec_depend>
+    <exec_depend>std_msgs</exec_depend>
+
+    <test_depend>ament_pep257</test_depend>
+    <test_depend>ament_xmllint</test_depend>
+    <test_depend>python3-pytest</test_depend>
+
+    <export>
+        <build_type>ament_python</build_type>
+    </export>
+</package>
