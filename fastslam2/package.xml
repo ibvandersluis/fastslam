@@ -3,11 +3,11 @@
 <package format="2">
     <name>fastslam2</name>
     <version>0.0.0</version>
-    <description>fastslam2 node</description>
-    <maintainer email="brookes@brookes.tech">Brookes</maintainer>
+    <description>FastSLAM 2.0 node</description>
+    <maintainer email="isaacvandersluis@gmail.com">Isaac Vander Sluis</maintainer>
     <license>UNLICENSED</license>
-    <url type="website">https://gitlab.com/obr-a/integration/fastslam2</url>
-    <author email="brookes@brookes.tech">Brookes</author>
+    <url type="website">https://github.com/ibvandersluis/fastslam</url>
+    <author email="isaacvandersluis@gmail.com">Isaac Vander Sluis</author>
 
     <exec_depend>helpers</exec_depend>
     <exec_depend>msgs</exec_depend>
