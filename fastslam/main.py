@@ -11,7 +11,7 @@ from std_msgs.msg import String
 class Listener(BaseListener):
 
     def __init__(self):
-        super().__init__('fastslam2')
+        super().__init__('fastslam')
 
         self.declare_parameters('', [
             ('pub_topic', 'out', ParameterDescriptor(
