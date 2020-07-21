@@ -2,10 +2,11 @@
 
 import sys
 
+import message_filters
 import rclpy
 from helpers.listener import BaseListener
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
-from std_msgs.msg import String
+from msgs.msg import String
 
 
 class Listener(BaseListener):
@@ -13,26 +14,19 @@ class Listener(BaseListener):
     def __init__(self):
         super().__init__('fastslam')
 
-        self.declare_parameters('', [
-            ('pub_topic', 'out', ParameterDescriptor(
-                name='pub_topic',
-                read_only=True,
-                description='topic to send to',
-                type=ParameterType.PARAMETER_STRING,
-                additional_constraints='valid topic name')),
-            ('sub_topic', 'in', ParameterDescriptor(
-                name='sub_topic',
-                read_only=True,
-                description='topic to receive on',
-                type=ParameterType.PARAMETER_STRING,
-                additional_constraints='valid topic name')),
-        ])
+        # publish to /rosout
+        self.pub = self.create_publisher(String, '/rosout', 10)
+        self.create_subscription(String, '/wheelspeed', self.callback, 10)
 
-        self.pub_topic = self.get_parameter('pub_topic').value
-        self.sub_topic = self.get_parameter('sub_topic').value
+        # multiple subscribers - not finished
+        cones_sub = message_filters.Subscriber(self, type, '/cones/positions')
+        odom_sub = message_filters.Subscriber(self, type, '/gazebo/odom')
+        gps_sub = message_filters.Subscriber(self, type, '/gps/data')
+        wss_sub = message_filters.Subscriber(self, type, '/wss')
 
-        self.pub = self.create_publisher(String, self.pub_topic, 10)
-        self.sub = self.create_subscription(String, self.sub_topic, self.callback, 10)
+        ts = message_filters.TimeSynchronizer([points_sub, boxes_sub], 100)
+        ts.registerCallback(self.callback)
+        # end multiple subscribers
 
     def callback(self, msg: String):
         self.get_logger().info(f"Received: {msg.data}")
