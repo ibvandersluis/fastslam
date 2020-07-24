@@ -5,7 +5,7 @@
     <version>0.0.0</version>
     <description>FastSLAM node</description>
     <maintainer email="isaacvandersluis@gmail.com">Isaac Vander Sluis</maintainer>
-    <license>UNLICENSED</license>
+    <license>Apache License 2.0</license>
     <url type="website">https://github.com/ibvandersluis/fastslam</url>
     <author email="isaacvandersluis@gmail.com">Isaac Vander Sluis</author>
 
