@@ -58,7 +58,7 @@ class Listener(BaseListener):
 
         # Log data retrieval
         for cone in msg.cones:
-            self.get_logger().info(cone)
+            self.get_logger().info(str(cone))
 
         # Compose ConeArray
 
