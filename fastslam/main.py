@@ -25,8 +25,8 @@ class Listener(BaseListener):
 
         # Set subscribers
         self.cones_sub = self.create_subscription(ConeArray, '/cones/positions', self.cones_callback, 10)
-        self.gnss_sub = self.create_subscription(NavSatFix, '/gps/data', self.gnss_callback)
-        self.imu_sub = self.create_subscription(IMU, '/imu/data', self.imu_callback, 10)
+        self.gnss_sub = self.create_subscription(NavSatFix, '/peak_gps/gps', self.gnss_callback, 10)
+        self.imu_sub = self.create_subscription(IMU, '/peak_gps/imu', self.imu_callback, 10)
         # self.wss_sub = self.create_subscription(WheelSpeeds, '/can/ws', self.wss_callback, 10)
 
         # Set publishers
@@ -64,16 +64,12 @@ class Listener(BaseListener):
         # self.map_pub.publish(ConeArray)
 
     def gnss_callback(self, msg: NavSatFix()):
-        # Get GNSS data
-
         # Log data retrieval
-        self.get_logger().info('From GNSS: %s' % msg)
+        self.get_logger().info(f'From GNSS: {msg.latitude}, {msg.longitude}')
     
     def imu_callback(self, msg: IMU()):
-        # Get IMU data
-
         # Log data retrieval
-        self.get_logger().info('From IMU: {msg.longitudinal}, {msg.lateral}, {msg.vertical}')
+        self.get_logger().info(f'From IMU: {msg.longitudinal}, {msg.lateral}, {msg.vertical}')
 
     # def wss_callback(self):
         # Get WSS data
