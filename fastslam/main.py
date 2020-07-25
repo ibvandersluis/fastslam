@@ -6,12 +6,14 @@ import message_filters
 import rclpy
 import numpy as np
 from helpers.listener import BaseListener
+from helpers import shortcuts
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 from brookes_msgs.msg import Cone, CarPos, ConeArray, IMU
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import Point
 # from ads_dv_msgs.msg import VCU2AIWheelspeeds
 
+shortcuts.hint()
 
 class Listener(BaseListener):
 
@@ -56,7 +58,7 @@ class Listener(BaseListener):
 
         # Log data retrieval
         for cone in msg.cones:
-            self.get_logger().info(f'Cone retrieved: Position: {cone.position}, Label: {cone.label}, Confidence: {cone.confidence}')
+            self.get_logger().info(cone)
 
         # Compose ConeArray
 
