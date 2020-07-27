@@ -5,6 +5,7 @@ import sys
 import message_filters
 import rclpy
 import numpy as np
+import matplotlib.pyplot as plt
 import math
 from copy import deepcopy
 from helpers.listener import BaseListener
@@ -264,10 +265,108 @@ print("weight after wrong prediction", particles[0].w)
 
 # STEP 3: RESAMPLE
 
+def normalize_weight(particles):
 
+    sumw = sum([p.w for p in particles])
+
+    try:
+        for i in range(N_PARTICLE):
+            particles[i].w /= sumw
+    except ZeroDivisionError:
+        for i in range(N_PARTICLE):
+            particles[i].w = 1.0 / N_PARTICLE
+
+        return particles
+
+    return particles
+
+
+def resampling(particles):
+    """
+    low variance re-sampling
+    """
+
+    particles = normalize_weight(particles)
+
+    pw = []
+    for i in range(N_PARTICLE):
+        pw.append(particles[i].w)
+
+    pw = np.array(pw)
+
+    Neff = 1.0 / (pw @ pw.T)  # Effective particle number
+    # print(Neff)
+
+    if Neff < NTH:  # resampling
+        wcum = np.cumsum(pw)
+        base = np.cumsum(pw * 0.0 + 1 / N_PARTICLE) - 1 / N_PARTICLE
+        resampleid = base + np.random.rand(base.shape[0]) / N_PARTICLE
+
+        inds = []
+        ind = 0
+        for ip in range(N_PARTICLE):
+            while ((ind < wcum.shape[0] - 1) and (resampleid[ip] > wcum[ind])):
+                ind += 1
+            inds.append(ind)
+
+        tparticles = particles[:]
+        for i in range(len(inds)):
+            particles[i].x = tparticles[inds[i]].x
+            particles[i].y = tparticles[inds[i]].y
+            particles[i].yaw = tparticles[inds[i]].yaw
+            particles[i].w = 1.0 / N_PARTICLE
+
+    return particles, inds
+# END OF SNIPPET #
+
+
+
+def gaussian(x, mu, sig):
+    return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
+N_PARTICLE = 100
+particles = [Particle(N_LM) for i in range(N_PARTICLE)]
+x_pos = []
+w = []
+for i in range(N_PARTICLE):
+    particles[i].x = np.linspace(-0.5,0.5,N_PARTICLE)[i]
+    x_pos.append(particles[i].x)
+    particles[i].w = gaussian(i, N_PARTICLE/2, N_PARTICLE/20)
+    w.append(particles[i].w)
+
+
+# Normalize weights
+sw = sum(w)
+for i in range(N_PARTICLE):
+    w[i] /= sw
+
+particles, new_indices = resampling(particles)
+x_pos2 = []
+for i in range(N_PARTICLE):
+    x_pos2.append(particles[i].x)
+
+# Plot results
+fig, ((ax1,ax2,ax3)) = plt.subplots(nrows=3, ncols=1)
+fig.tight_layout()
+ax1.plot(x_pos,np.ones((N_PARTICLE,1)), '.r', markersize=2)
+ax1.set_title("Particles before resampling")
+ax1.axis((-1, 1, 0, 2))
+ax2.plot(w)
+ax2.set_title("Weights distribution")
+ax3.plot(x_pos2,np.ones((N_PARTICLE,1)), '.r')
+ax3.set_title("Particles after resampling")
+ax3.axis((-1, 1, 0, 2))
+fig.subplots_adjust(hspace=0.8)
+plt.show()
+
+plt.figure()
+plt.hist(new_indices)
+plt.xlabel("Particles indices to be resampled")
+plt.ylabel("# of time index is used")
+plt.show()
 
 # --- END CODE FROM PYTHON ROBOTICS / ATSUSHI SAKAI ---
 
+# ROS 2 Code
 class Listener(BaseListener):
 
     def __init__(self):
