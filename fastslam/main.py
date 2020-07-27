@@ -5,6 +5,8 @@ import sys
 import message_filters
 import rclpy
 import numpy as np
+import math
+from copy import deepcopy
 from helpers.listener import BaseListener
 from helpers import shortcuts
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
@@ -14,6 +16,83 @@ from geometry_msgs.msg import Point
 # from ads_dv_msgs.msg import VCU2AIWheelspeeds
 
 shortcuts.hint()
+
+# --- CODE FROM PYTHON ROBOTICS / ATSUSHI SAKAI ---
+
+# Fast SLAM covariance
+Q = np.diag([3.0, np.deg2rad(10.0)])**2
+R = np.diag([1.0, np.deg2rad(20.0)])**2
+
+#  Simulation parameter
+Qsim = np.diag([0.3, np.deg2rad(2.0)])**2
+Rsim = np.diag([0.5, np.deg2rad(10.0)])**2
+OFFSET_YAWRATE_NOISE = 0.01
+
+DT = 0.1  # time tick [s]
+SIM_TIME = 50.0  # simulation time [s]
+MAX_RANGE = 20.0  # maximum observation range
+M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
+STATE_SIZE = 3  # State size [x,y,yaw]
+LM_SIZE = 2  # LM srate size [x,y]
+N_PARTICLE = 100  # number of particle
+NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
+
+class Particle:
+    def __init__(self, N_LM):
+        self.w = 1.0 / N_PARTICLE
+        self.x = 0.0
+        self.y = 0.0
+        self.yaw = 0.0
+        # landmark x-y positions
+        self.lm = np.zeros((N_LM, LM_SIZE))
+        # landmark position covariance
+        self.lmP = np.zeros((N_LM * LM_SIZE, LM_SIZE))
+
+def motion_model(x, u):
+    F = np.array([[1.0, 0, 0],
+                  [0, 1.0, 0],
+                  [0, 0, 1.0]])
+
+    B = np.array([[DT * math.cos(x[2, 0]), 0],
+                  [DT * math.sin(x[2, 0]), 0],
+                  [0.0, DT]])
+    x = F @ x + B @ u
+
+    x[2, 0] = pi_2_pi(x[2, 0])
+    return x
+
+def predict_particles(particles, u):
+    for i in range(N_PARTICLE):
+        px = np.zeros((STATE_SIZE, 1))
+        px[0, 0] = particles[i].x
+        px[1, 0] = particles[i].y
+        px[2, 0] = particles[i].yaw
+        ud = u + (np.random.randn(1, 2) @ R).T  # add noise
+        px = motion_model(px, ud)
+        particles[i].x = px[0, 0]
+        particles[i].y = px[1, 0]
+        particles[i].yaw = px[2, 0]
+
+    return particles
+
+def pi_2_pi(angle):
+    return (angle + math.pi) % (2 * math.pi) - math.pi
+
+# END OF SNIPPET
+
+N_LM = 0
+particles = [Particle(N_LM) for i in range(N_PARTICLE)]
+time= 0.0
+v = 1.0  # [m/s]
+yawrate = 0.1  # [rad/s]
+u = np.array([v, yawrate]).reshape(2, 1)
+history = []
+while SIM_TIME >= time:
+    time += DT
+    particles = predict_particles(particles, u)
+    history.append(deepcopy(particles))
+
+# --- END CODE FROM PYTHON ROBOTICS / ATSUSHI SAKAI ---
 
 class Listener(BaseListener):
 
