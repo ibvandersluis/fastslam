@@ -20,9 +20,10 @@ from copy import deepcopy
 from helpers.listener import BaseListener
 from helpers import shortcuts
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
-from brookes_msgs.msg import Cone, CarPos, ConeArray, IMU
+from brookes_msgs.msg import Cone, CarPos, ConeArray, IMU, Label
 from sensor_msgs.msg import NavSatFix
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import Point, Twist, Vector3
+from gazebo_msgs.msg import LinkStates
 # from ads_dv_msgs.msg import VCU2AIWheelspeeds
 
 shortcuts.hint()
@@ -312,6 +313,8 @@ def compute_weight(particle, z, Q_cov):
 
 def compute_jacobians(particle, xf, Pf, Q_cov):
     """
+    Computes Jacobian matrices
+
     :param particle: A particle
     :param xf:
     :param Pf:
@@ -656,9 +659,14 @@ class Listener(BaseListener):
         self.imu_sub = self.create_subscription(IMU, '/peak_gps/imu', self.imu_callback, 10)
         # self.wss_sub = self.create_subscription(WheelSpeeds, '/can/ws', self.wss_callback, 10)
 
+        # gets links (all objects) from gazebo
+        self.link_sub = self.create_subscription(LinkStates, "/gazebo/link_states", self.link_states_callback, 10)
+
+
         # Set publishers
         self.map_pub = self.create_publisher(ConeArray, '/mapping/map', 10)
         self.pose_pub = self.create_publisher(CarPos, '/mapping/position', 10)
+        self.cmd_pub = self.create_publisher(Twist, '/gazebo/cmd_vel', 10)
 
         # multiple subscribers - not finished
         # cones_sub = message_filters.Subscriber(self, type, '/cones/positions')
@@ -669,6 +677,8 @@ class Listener(BaseListener):
         # ts = message_filters.TimeSynchronizer([points_sub, boxes_sub], 100)
         # ts.registerCallback(self.callback)
         # end multiple subscribers
+    
+    
 
     def cones_callback(self, msg: ConeArray):
 
@@ -689,6 +699,24 @@ class Listener(BaseListener):
         # Log data retrieval
         self.get_logger().info(f'From IMU: {msg.longitudinal}, {msg.lateral}, {msg.vertical}')
 
+    def link_states_callback(self, links_msg: LinkStates):
+        cones = []
+        for name, pose in zip(links_msg.name, links_msg.pose):
+            if 'blue_cone' in name:
+                label = Label.BLUE_CONE
+            elif 'yellow_cone' in name:
+                label = Label.YELLOW_CONE
+            elif 'big_orange_cone' in name:
+                label = Label.BIG_ORANGE_CONE
+            elif 'orange_cone' in name:
+                label = Label.ORANGE_CONE
+            else:
+                # if not a cone
+                continue
+            cones.append(Cone(position=pose.position, label=label))
+
+
+
     # def wss_callback(self):
         # Get WSS data
         # msg = WheelSpeeds()
@@ -702,6 +730,9 @@ class Listener(BaseListener):
 
         # Publish pose to position topic
         # self.pose_pub.publish(CarPos(position=Point(x=float(self.pos[0, 0]), y=float(self.pos[0, 1])), angle=float(self.pos[0, 2])))
+
+    # Publish to cmd: speed, steering
+    # self.cmd_pub.publish(Twist(linear=Vector3(x=float(self.speed)), angular=Vector3(z=-float(steer)))
 
 def main(args=None):
     rclpy.init(args=args)
