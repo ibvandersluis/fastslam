@@ -71,7 +71,7 @@ class Particle:
         """
         Construct a new particle
 
-        :param n_landmark: 
+        :param n_landmark: The landmark number
         :return: Returns nothing
         """
         
@@ -148,7 +148,7 @@ def motion_model(x, u):
     """
     Compute predictions for a particle
 
-    :param x: The state vector
+    :param x: The state vector [x, y, yaw]
     :param u: The input vector [Vt, Wt]
     :return: Returns new state vector x
     """
@@ -226,7 +226,7 @@ def observation(xTrue, xd, u, rfid):
     :return:
         xTrue - the true state
         z - the observation
-        xd - predictions?
+        xd - sate expectation
         ud - Input with noise
     """
     # calc true state
@@ -527,9 +527,6 @@ def resampling(particles):
 
 
 def gaussian(x, mu, sig):
-    """
-    
-    """
     return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
 
 N_PARTICLE = 100
