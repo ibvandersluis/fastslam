@@ -202,17 +202,17 @@ def pi_2_pi(angle):
 
 # END OF SNIPPET
 
-N_LM = 0
-particles = [Particle(N_LM) for i in range(N_PARTICLE)] # Generate array of 100 particles
-time= 0.0
-v = 1.0  # [m/s]
-yawrate = 0.1  # [rad/s]
-u = np.array([v, yawrate]).reshape(2, 1)
-history = []
-while SIM_TIME >= time:
-    time += DT
-    particles = predict_particles(particles, u)
-    history.append(deepcopy(particles))
+# N_LM = 0
+# particles = [Particle(N_LM) for i in range(N_PARTICLE)] # Generate array of 100 particles
+# time= 0.0
+# v = 1.0  # [m/s]
+# yawrate = 0.1  # [rad/s]
+# u = np.array([v, yawrate]).reshape(2, 1)
+# history = []
+# while SIM_TIME >= time:
+#     time += DT
+#     particles = predict_particles(particles, u)
+#     history.append(deepcopy(particles))
 
 # STEP 2: UPDATE
 
@@ -220,10 +220,10 @@ def observation(xTrue, xd, u, rfid):
     """
     Record an observation
 
-    :param xTrue: the true state
+    :param xTrue: The true state
     :param xd: 
     :param u: Velocity and Yaw
-    :param rfid:
+    :param rfid: The true map of landmarks
     :return:
         xTrue - the true state
         z - the observation
@@ -235,23 +235,24 @@ def observation(xTrue, xd, u, rfid):
 
     # add noise to range observation
     z = np.zeros((3, 0))
+    # For each landmark
     for i in range(len(rfid[:, 0])):
-
+        # Get true distance d between pose and landmark
         dx = rfid[i, 0] - xTrue[0, 0]
         dy = rfid[i, 1] - xTrue[1, 0]
         d = math.hypot(dx, dy)
         angle = pi_2_pi(math.atan2(dy, dx) - xTrue[2, 0])
+        # If the object is close enough to sense:
         if d <= MAX_RANGE:
             dn = d + np.random.randn() * Q_sim[0, 0] ** 0.5  # add noise
-            angle_with_noise = angle + np.random.randn() * Q_sim[
-                1, 1] ** 0.5  # add noise
+            angle_with_noise = angle + np.random.randn() * Q_sim[1, 1] ** 0.5  # add noise
             zi = np.array([dn, pi_2_pi(angle_with_noise), i]).reshape(3, 1) # The predicted measurement
-            z = np.hstack((z, zi)) # The actual measurement
+            z = np.hstack((z, zi)) # add prediction to stack of observations
 
     # add noise to input
-    ud1 = u[0, 0] + np.random.randn() * R_sim[0, 0] ** 0.5
-    ud2 = u[1, 0] + np.random.randn() * R_sim[1, 1] ** 0.5 + OFFSET_YAW_RATE_NOISE
-    ud = np.array([ud1, ud2]).reshape(2, 1)
+    # ud1 = u[0, 0] + np.random.randn() * R_sim[0, 0] ** 0.5
+    # ud2 = u[1, 0] + np.random.randn() * R_sim[1, 1] ** 0.5 + OFFSET_YAW_RATE_NOISE
+    # ud = np.array([ud1, ud2]).reshape(2, 1)
 
     xd = motion_model(xd, ud)
 
@@ -433,30 +434,30 @@ def update_landmark(particle, z, Q_cov):
 
 
 
-# Setting up the landmarks
-RFID = np.array([[10.0, -2.0],
-                [15.0, 10.0]])
-N_LM = RFID.shape[0]
+# # Setting up the landmarks
+# RFID = np.array([[10.0, -2.0],
+#                 [15.0, 10.0]])
+# N_LM = RFID.shape[0]
 
-# Initialize 1 particle
-N_PARTICLE = 1
-particles = [Particle(N_LM) for i in range(N_PARTICLE)]
+# # Initialize 1 particle
+# N_PARTICLE = 1
+# particles = [Particle(N_LM) for i in range(N_PARTICLE)]
 
-xTrue = np.zeros((STATE_SIZE, 1))
-xDR = np.zeros((STATE_SIZE, 1))
+# xTrue = np.zeros((STATE_SIZE, 1))
+# xDR = np.zeros((STATE_SIZE, 1))
 
-print("initial weight", particles[0].w)
+# print("initial weight", particles[0].w)
 
-xTrue, z, _, ud = observation(xTrue, xDR, u, RFID)
-# Initialize landmarks
-particles = update_with_observation(particles, z)
-print("weight after landmark initialization", particles[0].w)
-particles = update_with_observation(particles, z)
-print("weight after update ", particles[0].w)
+# xTrue, z, _, ud = observation(xTrue, xDR, u, RFID)
+# # Initialize landmarks
+# particles = update_with_observation(particles, z)
+# print("weight after landmark initialization", particles[0].w)
+# particles = update_with_observation(particles, z)
+# print("weight after update ", particles[0].w)
 
-particles[0].x = -10
-particles = update_with_observation(particles, z)
-print("weight after wrong prediction", particles[0].w)
+# particles[0].x = -10
+# particles = update_with_observation(particles, z)
+# print("weight after wrong prediction", particles[0].w)
 
 # STEP 3: RESAMPLE
 
@@ -529,49 +530,49 @@ def resampling(particles):
 
 
 
-def gaussian(x, mu, sig):
-    return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
+# def gaussian(x, mu, sig):
+#     return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
 
-N_PARTICLE = 100
-particles = [Particle(N_LM) for i in range(N_PARTICLE)]
-x_pos = []
-w = []
-for i in range(N_PARTICLE):
-    particles[i].x = np.linspace(-0.5,0.5,N_PARTICLE)[i]
-    x_pos.append(particles[i].x)
-    particles[i].w = gaussian(i, N_PARTICLE/2, N_PARTICLE/20)
-    w.append(particles[i].w)
+# N_PARTICLE = 100
+# particles = [Particle(N_LM) for i in range(N_PARTICLE)]
+# x_pos = []
+# w = []
+# for i in range(N_PARTICLE):
+#     particles[i].x = np.linspace(-0.5,0.5,N_PARTICLE)[i]
+#     x_pos.append(particles[i].x)
+#     particles[i].w = gaussian(i, N_PARTICLE/2, N_PARTICLE/20)
+#     w.append(particles[i].w)
 
 
-# Normalize weights
-sw = sum(w)
-for i in range(N_PARTICLE):
-    w[i] /= sw
+# # Normalize weights
+# sw = sum(w)
+# for i in range(N_PARTICLE):
+#     w[i] /= sw
 
-particles, new_indices = resampling(particles)
-x_pos2 = []
-for i in range(N_PARTICLE):
-    x_pos2.append(particles[i].x)
+# particles, new_indices = resampling(particles)
+# x_pos2 = []
+# for i in range(N_PARTICLE):
+#     x_pos2.append(particles[i].x)
 
-# Plot results
-fig, ((ax1,ax2,ax3)) = plt.subplots(nrows=3, ncols=1)
-fig.tight_layout()
-ax1.plot(x_pos,np.ones((N_PARTICLE,1)), '.r', markersize=2)
-ax1.set_title("Particles before resampling")
-ax1.axis((-1, 1, 0, 2))
-ax2.plot(w)
-ax2.set_title("Weights distribution")
-ax3.plot(x_pos2,np.ones((N_PARTICLE,1)), '.r')
-ax3.set_title("Particles after resampling")
-ax3.axis((-1, 1, 0, 2))
-fig.subplots_adjust(hspace=0.8)
-plt.show()
+# # Plot results
+# fig, ((ax1,ax2,ax3)) = plt.subplots(nrows=3, ncols=1)
+# fig.tight_layout()
+# ax1.plot(x_pos,np.ones((N_PARTICLE,1)), '.r', markersize=2)
+# ax1.set_title("Particles before resampling")
+# ax1.axis((-1, 1, 0, 2))
+# ax2.plot(w)
+# ax2.set_title("Weights distribution")
+# ax3.plot(x_pos2,np.ones((N_PARTICLE,1)), '.r')
+# ax3.set_title("Particles after resampling")
+# ax3.axis((-1, 1, 0, 2))
+# fig.subplots_adjust(hspace=0.8)
+# plt.show()
 
-plt.figure()
-plt.hist(new_indices)
-plt.xlabel("Particles indices to be resampled")
-plt.ylabel("# of time index is used")
-plt.show()
+# plt.figure()
+# plt.hist(new_indices)
+# plt.xlabel("Particles indices to be resampled")
+# plt.ylabel("# of time index is used")
+# plt.show()
 
 # code from main function
 def pr_main():
@@ -589,14 +590,15 @@ def pr_main():
                      [-5.0, 5.0],
                      [-10.0, 15.0]
                      ])
-    n_landmark = RFID.shape[0]
+    # numpy shape attribute is the dimensions of a matrix
+    n_landmark = RFID.shape[0] # the number of coordinate pairs on RFID
 
     # State Vector [x y yaw v]'
     xEst = np.zeros((STATE_SIZE, 1))  # SLAM estimation
     xTrue = np.zeros((STATE_SIZE, 1))  # True state
     xDR = np.zeros((STATE_SIZE, 1))  # Dead reckoning
 
-    # history
+    # History
     hxEst = xEst
     hxTrue = xTrue
     hxDR = xTrue
@@ -604,23 +606,27 @@ def pr_main():
     particles = [Particle(n_landmark) for _ in range(N_PARTICLE)]
 
     while SIM_TIME >= time:
-        time += DT
-        u = calc_input(time)
+        time += DT # Increment time
+        u = calc_input(time) # Set input based on time
 
+        # Get observation
         xTrue, z, xDR, ud = observation(xTrue, xDR, u, RFID)
 
+        # Run SLAM
         particles = fast_slam1(particles, ud, z)
 
+        # Get state estimation
         xEst = calc_final_state(particles)
 
+        # What does this do??
         x_state = xEst[0: STATE_SIZE]
 
-        # store data history
+        # Store data history
         hxEst = np.hstack((hxEst, x_state))
         hxDR = np.hstack((hxDR, xDR))
         hxTrue = np.hstack((hxTrue, xTrue))
 
-        if show_animation:  # pragma: no cover
+        if show_animation:  # Pragma: no cover
             plt.cla()
             # for stopping simulation with the esc key.
             plt.gcf().canvas.mpl_connect(
@@ -652,6 +658,14 @@ class Listener(BaseListener):
         # self.pose
         # self.prev_pose
         # self.correlations
+        self.particles = [Particle(n_landmark) for _ in range(N_PARTICLE)]
+
+        # State Vector [x y yaw]'
+        self.xEst = np.zeros((STATE_SIZE, 1))  # SLAM estimation
+        self.hxEst = self.xEst # History
+        self.u = np.array([v, yaw_rate]).reshape(2, 1)
+        self.z = # Tweak observation function and run here = observation(xTrue, xDR, u, RFID)
+
 
         # Set subscribers
         self.cones_sub = self.create_subscription(ConeArray, '/cones/positions', self.cones_callback, 10)
