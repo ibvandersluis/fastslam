@@ -705,7 +705,7 @@ class Listener(BaseListener):
         # Log data retrieval
         for cone in msg.cones:
             self.get_logger().info(str(cone))
-            new_cone = [cone.x, cone.y, cone.label]
+            new_cone = np.array([cone.x, cone.y, cone.label])
             self.capture = np.hstack((self.capture, new_cone))
         self.get_logger().info(self.capture)
 
