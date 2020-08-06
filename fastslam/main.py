@@ -660,7 +660,7 @@ class Listener(BaseListener):
 
 
         self.capture = [] # For cone data from snapsot of camera
-        self.n_landmark = 2 # Number of initial landmdarks
+        self.n_landmark = 10 # Number of initial landmdarks
 
 
         # State Vector [x y yaw]
