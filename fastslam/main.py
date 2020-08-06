@@ -707,7 +707,8 @@ class Listener(BaseListener):
             self.get_logger().info(str(cone))
             new_cone = np.array([cone.x, cone.y, cone.label]).reshape(3, 1)
             self.capture = np.hstack((self.capture, new_cone))
-        self.get_logger().info(str(self.capture))
+        for cone in self.capture:
+            self.get_logger().info(str(cone[0]) + str(cone[1]) + str(cone[2]))
 
         # Compose ConeArray
 
