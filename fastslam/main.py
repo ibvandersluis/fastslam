@@ -216,14 +216,14 @@ def pi_2_pi(angle):
 
 # STEP 2: UPDATE
 
-def observation(xTrue, xd, u, rfid):
+def observation(xTrue, xd, u, data):
     """
     Record an observation
 
     :param xTrue: The true state
     :param xd: 
     :param u: Velocity and Yaw
-    :param rfid: The true map of landmarks
+    :param data: The landmarks seen by the camera
     :return:
         xTrue - the true state
         z - the observation
@@ -236,23 +236,22 @@ def observation(xTrue, xd, u, rfid):
     # add noise to range observation
     z = np.zeros((3, 0))
     # For each landmark
-    for i in range(len(rfid[:, 0])):
+    for i in range(len(data[:, 0])):
         # Get true distance d between pose and landmark
-        dx = rfid[i, 0] - xTrue[0, 0]
-        dy = rfid[i, 1] - xTrue[1, 0]
+        dx = data[i, 0] - xTrue[0, 0]
+        dy = data[i, 1] - xTrue[1, 0]
         d = math.hypot(dx, dy)
         angle = pi_2_pi(math.atan2(dy, dx) - xTrue[2, 0])
-        # If the object is close enough to sense:
-        if d <= MAX_RANGE:
-            dn = d + np.random.randn() * Q_sim[0, 0] ** 0.5  # add noise
-            angle_with_noise = angle + np.random.randn() * Q_sim[1, 1] ** 0.5  # add noise
-            zi = np.array([dn, pi_2_pi(angle_with_noise), i]).reshape(3, 1) # The predicted measurement
-            z = np.hstack((z, zi)) # add prediction to stack of observations
+
+        dn = d + np.random.randn() * Q_sim[0, 0] ** 0.5  # add noise
+        angle_with_noise = angle + np.random.randn() * Q_sim[1, 1] ** 0.5  # add noise
+        zi = np.array([dn, pi_2_pi(angle_with_noise), i]).reshape(3, 1) # The predicted measurement
+        z = np.hstack((z, zi)) # add prediction to stack of observations
 
     # add noise to input
-    # ud1 = u[0, 0] + np.random.randn() * R_sim[0, 0] ** 0.5
-    # ud2 = u[1, 0] + np.random.randn() * R_sim[1, 1] ** 0.5 + OFFSET_YAW_RATE_NOISE
-    # ud = np.array([ud1, ud2]).reshape(2, 1)
+    ud1 = u[0, 0] + np.random.randn() * R_sim[0, 0] ** 0.5
+    ud2 = u[1, 0] + np.random.randn() * R_sim[1, 1] ** 0.5 + OFFSET_YAW_RATE_NOISE
+    ud = np.array([ud1, ud2]).reshape(2, 1)
 
     xd = motion_model(xd, ud)
 
@@ -260,21 +259,22 @@ def observation(xTrue, xd, u, rfid):
 
 def update_with_observation(particles, z):
     """
-    Updates particles using observation
+    Update particles using an observation
 
     :param particles: An array of particles
-    :param z: An observation [Xt, Yt]
+    :param z: An observation (array of landmarks, each [dist, theta, id, colour])
     :return: Returns updated particles
     """
+    # For each landmark in the observation
     for iz in range(len(z[0, :])):
 
-        landmark_id = int(z[2, iz])
+        landmark_id = int(z[2, iz]) # Get landmark id
 
         for ip in range(N_PARTICLE):
-            # new landmark
+            # Add new landmark if [what] is less than 1%
             if abs(particles[ip].lm[landmark_id, 0]) <= 0.01:
                 particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
-            # known landmark
+            # Else update the known landmark
             else:
                 w = compute_weight(particles[ip], z[:, iz], Q)
                 particles[ip].w *= w
@@ -654,17 +654,23 @@ class Listener(BaseListener):
     def __init__(self):
         super().__init__('fastslam')
 
-        # Assign member variables
-        # self.pose
-        # self.prev_pose
-        # self.correlations
-        self.particles = [Particle(n_landmark) for _ in range(N_PARTICLE)]
+        # State variables
+        self.x = None
+        self.y = None
+        self.yaw = 1.0 
+        self.v = 1.0 # Velocity
+        self.n_landmark = 4 # Number of initial landmdarks
 
-        # State Vector [x y yaw]'
+        # Generate initial particles
+        self.particles = [Particle(self.n_landmark) for _ in range(N_PARTICLE)]
+
+        self.capture = np.zeros(3, 0) # Cone data from snapsot of camera
+
+        # State Vector [x y yaw]
         self.xEst = np.zeros((STATE_SIZE, 1))  # SLAM estimation
         self.hxEst = self.xEst # History
-        self.u = np.array([v, yaw_rate]).reshape(2, 1)
-        self.z = # Tweak observation function and run here = observation(xTrue, xDR, u, RFID)
+        self.u = np.array([self.v, self.yaw]).reshape(2, 1)
+        self.z = None
 
 
         # Set subscribers
@@ -699,6 +705,9 @@ class Listener(BaseListener):
         # Log data retrieval
         for cone in msg.cones:
             self.get_logger().info(str(cone))
+            new_cone = [cone.x, cone.y, cone.label]
+            self.capture = np.hstack((self.capture, new_cone))
+        self.get_logger().info(self.capture)
 
         # Compose ConeArray
 
