@@ -56,8 +56,6 @@ R_sim = np.diag([0.5, np.deg2rad(10.0)]) ** 2
 OFFSET_YAW_RATE_NOISE = 0.01
 
 DT = 0.1  # time tick [s]
-SIM_TIME = 50.0  # simulation time [s]
-MAX_RANGE = 20.0  # maximum observation range
 M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
 STATE_SIZE = 3  # State size [x, y, yaw]
 LM_SIZE = 2  # LM state size [x,y]
@@ -90,8 +88,8 @@ def fast_slam1(particles, u, z):
     Updates beliefs about position and landmarks using FastSLAM 1.0
 
     :param particles:
-    :param u: Ut = [Vt, Wt], the velocity and orientation at a given time
-    :param z: Zt = [Xt, Yt], the X-Y position at a given time
+    :param u: The controls (velocity and orientation)
+    :param z: The observation
     :return: Returns updated particles (position and landmarks)
     """
 
@@ -262,7 +260,7 @@ def update_with_observation(particles, z):
     Update particles using an observation
 
     :param particles: An array of particles
-    :param z: An observation (array of landmarks, each [dist, theta, id, colour])
+    :param z: An observation (array of landmarks, each [dist, theta, id])
     :return: Returns updated particles
     """
     # For each landmark in the observation
@@ -605,7 +603,7 @@ def pr_main():
 
     particles = [Particle(n_landmark) for _ in range(N_PARTICLE)]
 
-    while SIM_TIME >= time:
+    while time:
         time += DT # Increment time
         u = calc_input(time) # Set input based on time
 
@@ -732,6 +730,26 @@ class Listener(BaseListener):
         self.hxEst = np.hstack((self.hxEst, self.x_state))
         self.hxDR = np.hstack((self.hxDR, self.xDR))
         self.hxTrue = np.hstack((self.hxTrue, self.xTrue))
+
+        # Plot graph
+        plt.cla()
+        # for stopping simulation with the esc key.
+        plt.gcf().canvas.mpl_connect(
+            'key_release_event', lambda event:
+            [exit(0) if event.key == 'escape' else None])
+        plt.plot(self.capture[:, 0], self.capture[:, 1], "*k")
+
+        for i in range(N_PARTICLE):
+            plt.plot(self.particles[i].x, self.particles[i].y, ".r")
+            plt.plot(self.particles[i].lm[:, 0], self.particles[i].lm[:, 1], "xb")
+
+        plt.plot(self.hxTrue[0, :], self.hxTrue[1, :], "-b")
+        plt.plot(self.hxDR[0, :], self.hxDR[1, :], "-k")
+        plt.plot(self.hxEst[0, :], self.hxEst[1, :], "-r")
+        plt.plot(self.xEst[0], self.xEst[1], "xk")
+        plt.axis("equal")
+        plt.grid(True)
+        plt.pause(0.001)
 
     def gnss_callback(self, msg: NavSatFix()):
         # Log data retrieval
