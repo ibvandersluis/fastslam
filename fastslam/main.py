@@ -701,19 +701,9 @@ class Listener(BaseListener):
     
 
     def cones_callback(self, msg: ConeArray):
-
-        # Log data retrieval
-        for cone in msg.cones:
-            self.get_logger().info(str(cone))
-            new_cone = np.array([cone.x, cone.y, cone.label]).reshape(3, 1)
-            self.capture = np.hstack((self.capture, new_cone))
-        for cone in self.capture:
-            self.get_logger().info(str(cone[0]) + str(cone[1]) + str(cone[2]))
-
-        # Compose ConeArray
-
-        # Publish ConeArray to map topic
-        # self.map_pub.publish(ConeArray)
+        # Place x y positions of cones into self.capture
+        self.capture = np.array([[cone.x, cone.y] for cone in msg.cones])
+        print(self.capture)
 
     def gnss_callback(self, msg: NavSatFix()):
         # Log data retrieval
