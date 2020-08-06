@@ -736,7 +736,7 @@ class Listener(BaseListener):
             else:
                 # if not a cone
                 continue
-            cones.append(Cone(position=pose.position, label=label))
+            cones.append(Cone(position=pose.position, label=Label(label=label)))
 
 
 
