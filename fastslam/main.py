@@ -655,12 +655,12 @@ class Listener(BaseListener):
         # State variables
         self.x = None
         self.y = None
-        self.yaw = 1.0 
+        self.yaw = 0.4 
         self.v = 1.0 # Velocity
 
 
         self.capture = [] # For cone data from snapsot of camera
-        self.n_landmark = 4 # Number of initial landmdarks
+        self.n_landmark = 2 # Number of initial landmdarks
 
 
         # State Vector [x y yaw]
