@@ -269,7 +269,7 @@ def update_with_observation(particles, z):
         landmark_id = int(z[2, iz]) # Get landmark id
 
         for ip in range(N_PARTICLE):
-            # Add new landmark if [what] is less than 1%
+            # Add new landmark if likelihood is less than 1%
             if abs(particles[ip].lm[landmark_id, 0]) <= 0.01:
                 particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
             # Else update the known landmark
@@ -692,6 +692,7 @@ class Listener(BaseListener):
         # gets links (all objects) from gazebo
         self.link_sub = self.create_subscription(LinkStates, "/gazebo/link_states", self.link_states_callback, 10)
 
+        # ros2 topic pub /gazebo/cmd_vel geometry_msgs/Twist '{linear: {x: 1.0}, angular: {z: 1.0}}' 
 
         # Set publishers
         self.map_pub = self.create_publisher(ConeArray, '/mapping/map', 10)
@@ -723,7 +724,7 @@ class Listener(BaseListener):
         # Get state estimation
         self.xEst = calc_final_state(self.particles)
 
-        # What does this do??
+        # Boundary check
         self.x_state = self.xEst[0: STATE_SIZE]
 
         # Store data history
