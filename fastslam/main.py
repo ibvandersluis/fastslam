@@ -664,7 +664,7 @@ class Listener(BaseListener):
         # Generate initial particles
         self.particles = [Particle(self.n_landmark) for _ in range(N_PARTICLE)]
 
-        self.capture = np.zeros(3, 0) # Cone data from snapsot of camera
+        self.capture = np.zeros((3, 0)) # Cone data from snapsot of camera
 
         # State Vector [x y yaw]
         self.xEst = np.zeros((STATE_SIZE, 1))  # SLAM estimation
