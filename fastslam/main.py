@@ -659,18 +659,30 @@ class Listener(BaseListener):
         self.y = None
         self.yaw = 1.0 
         self.v = 1.0 # Velocity
+
+
+        self.capture = [] # For cone data from snapsot of camera
         self.n_landmark = 4 # Number of initial landmdarks
+
+
+        # State Vector [x y yaw]
+        self.xEst = np.zeros((STATE_SIZE, 1))  # SLAM estimation
+        self.xTrue = np.zeros((STATE_SIZE, 1))  # True state
+        self.xDR = np.zeros((STATE_SIZE, 1))  # Dead reckoning
+
+        # History
+        self.hxEst = self.xEst
+        self.hxTrue = self.xTrue
+        self.hxDR = self.xTrue
 
         # Generate initial particles
         self.particles = [Particle(self.n_landmark) for _ in range(N_PARTICLE)]
 
-        self.capture = np.zeros((3, 0)) # Cone data from snapsot of camera
 
-        # State Vector [x y yaw]
-        self.xEst = np.zeros((STATE_SIZE, 1))  # SLAM estimation
-        self.hxEst = self.xEst # History
         self.u = np.array([self.v, self.yaw]).reshape(2, 1)
+        self.ud = None
         self.z = None
+
 
 
         # Set subscribers
@@ -697,13 +709,29 @@ class Listener(BaseListener):
         # ts = message_filters.TimeSynchronizer([points_sub, boxes_sub], 100)
         # ts.registerCallback(self.callback)
         # end multiple subscribers
-    
-    
 
     def cones_callback(self, msg: ConeArray):
         # Place x y positions of cones into self.capture
         self.capture = np.array([[cone.x, cone.y] for cone in msg.cones])
         print(self.capture)
+        self.n_landmark = self.capture.shape[0]
+
+        # Get observation
+        self.xTrue, self.z, self.xDR, self.ud = observation(self.xTrue, self.xDR, self.u, self.capture)
+
+        # Run SLAM
+        self.particles = fast_slam1(self.particles, self.ud, self.z)
+
+        # Get state estimation
+        self.xEst = calc_final_state(self.particles)
+
+        # What does this do??
+        self.x_state = self.xEst[0: STATE_SIZE]
+
+        # Store data history
+        self.hxEst = np.hstack((self.hxEst, self.x_state))
+        self.hxDR = np.hstack((self.hxDR, self.xDR))
+        self.hxTrue = np.hstack((self.hxTrue, self.xTrue))
 
     def gnss_callback(self, msg: NavSatFix()):
         # Log data retrieval
