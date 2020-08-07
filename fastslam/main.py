@@ -236,8 +236,8 @@ def observation(xTrue, xd, u, data):
     # For each landmark
     for i in range(len(data[:, 0])):
         # Get true distance d between pose and landmark
-        dx = data[i, 0]# - xTrue[0, 0]
-        dy = data[i, 1]# - xTrue[1, 0]
+        dx = data[i, 0] - xTrue[0, 0]
+        dy = data[i, 1] - xTrue[1, 0]
         d = math.hypot(dx, dy)
         angle = pi_2_pi(math.atan2(dy, dx) - xTrue[2, 0])
         zi = np.array([d, pi_2_pi(angle), i]).reshape(3, 1) # The predicted measurement
@@ -583,8 +583,7 @@ def pr_main():
                      [3.0, 15.0],
                      [-5.0, 20.0],
                      [-5.0, 5.0],
-                     [-10.0, 15.0]
-                     ])
+                     [-10.0, 15.0]])
     # numpy shape attribute is the dimensions of a matrix
     n_landmark = RFID.shape[0] # the number of coordinate pairs on RFID
 
@@ -727,6 +726,8 @@ class Listener(BaseListener):
         self.hxEst = np.hstack((self.hxEst, self.x_state))
         self.hxDR = np.hstack((self.hxDR, self.xDR))
         self.hxTrue = np.hstack((self.hxTrue, self.xTrue))
+
+        print(self.xTrue)
 
         # Plot graph
         plt.cla()
