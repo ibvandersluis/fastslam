@@ -727,7 +727,7 @@ class Listener(BaseListener):
         self.hxDR = np.hstack((self.hxDR, self.xDR))
         self.hxTrue = np.hstack((self.hxTrue, self.xTrue))
 
-        print(self.xTrue)
+        print('xTrue: ' + self.xTrue)
 
         # Plot graph
         plt.cla()
