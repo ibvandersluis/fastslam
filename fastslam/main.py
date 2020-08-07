@@ -236,8 +236,8 @@ def observation(xTrue, xd, u, data):
     # For each landmark
     for i in range(len(data[:, 0])):
         # Get true distance d between pose and landmark
-        dx = data[i, 0] - xTrue[0, 0]
-        dy = data[i, 1] - xTrue[1, 0]
+        dx = data[i, 0]# - xTrue[0, 0]
+        dy = data[i, 1]# - xTrue[1, 0]
         d = math.hypot(dx, dy)
         angle = pi_2_pi(math.atan2(dy, dx) - xTrue[2, 0])
         zi = np.array([d, pi_2_pi(angle), i]).reshape(3, 1) # The predicted measurement
