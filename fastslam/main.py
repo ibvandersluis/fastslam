@@ -706,7 +706,7 @@ class Listener(BaseListener):
 
     def cones_callback(self, msg: ConeArray):
         # Place x y positions of cones into self.capture
-        self.capture = np.array([[cone.x, cone.y] for cone in msg.cones])
+        self.capture = np.array([[cone.x + self.xTrue[0, 0], cone.y + self.xTrue[0, 1]] for cone in msg.cones])
         print(self.capture)
         # self.n_landmark = self.capture.shape[0]
 
@@ -726,10 +726,6 @@ class Listener(BaseListener):
         self.hxEst = np.hstack((self.hxEst, self.x_state))
         self.hxDR = np.hstack((self.hxDR, self.xDR))
         self.hxTrue = np.hstack((self.hxTrue, self.xTrue))
-
-        print('----xTrue----')
-        print(self.xTrue)
-        print('-------------')
 
         # Plot graph
         plt.cla()
