@@ -234,6 +234,7 @@ def observation(xTrue, xd, u, data):
     # add noise to range observation
     z = np.zeros((3, 0))
     # For each landmark
+    print(len(data[:, 0]))
     for i in range(len(data[:, 0])):
         # Get true distance d between pose and landmark
         dx = data[i, 0] - xTrue[0, 0]
