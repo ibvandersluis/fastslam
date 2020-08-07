@@ -55,7 +55,7 @@ Q_sim = np.diag([0.3, np.deg2rad(2.0)]) ** 2
 R_sim = np.diag([0.5, np.deg2rad(10.0)]) ** 2
 OFFSET_YAW_RATE_NOISE = 0.01
 
-DT = 0.05  # time tick [s]
+DT = 0.2  # time tick [s]
 M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
 STATE_SIZE = 3  # State size [x, y, yaw]
 LM_SIZE = 2  # LM state size [x,y]
