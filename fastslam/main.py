@@ -74,7 +74,7 @@ class Particle:
         :return: Returns nothing
         """
         
-        self.w = 1.0 / N_PARTICLE # Particle weight?
+        self.w = 1.0 / N_PARTICLE # Particle weight
         self.x = 0.0 # X pos
         self.y = 0.0 # Y pos
         self.yaw = 0.0 # Orientation
@@ -240,10 +240,7 @@ def observation(xTrue, xd, u, data):
         dy = data[i, 1] - xTrue[1, 0]
         d = math.hypot(dx, dy)
         angle = pi_2_pi(math.atan2(dy, dx) - xTrue[2, 0])
-
-        dn = d + np.random.randn() * Q_sim[0, 0] ** 0.5  # add noise
-        angle_with_noise = angle + np.random.randn() * Q_sim[1, 1] ** 0.5  # add noise
-        zi = np.array([dn, pi_2_pi(angle_with_noise), i]).reshape(3, 1) # The predicted measurement
+        zi = np.array([d, pi_2_pi(angle), i]).reshape(3, 1) # The predicted measurement
         z = np.hstack((z, zi)) # add prediction to stack of observations
 
     # add noise to input
@@ -655,9 +652,8 @@ class Listener(BaseListener):
         # State variables
         self.x = None
         self.y = None
-        self.yaw = 0.4 
         self.v = 1.0 # Velocity
-
+        self.yaw = 0.4 
 
         self.capture = [] # For cone data from snapsot of camera
         self.n_landmark = 10 # Number of initial landmdarks
@@ -713,7 +709,7 @@ class Listener(BaseListener):
         # Place x y positions of cones into self.capture
         self.capture = np.array([[cone.x, cone.y] for cone in msg.cones])
         print(self.capture)
-        self.n_landmark = self.capture.shape[0]
+        # self.n_landmark = self.capture.shape[0]
 
         # Get observation
         self.xTrue, self.z, self.xDR, self.ud = observation(self.xTrue, self.xDR, self.u, self.capture)
