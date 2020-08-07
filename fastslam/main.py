@@ -706,7 +706,9 @@ class Listener(BaseListener):
 
     def cones_callback(self, msg: ConeArray):
         # Place x y positions of cones into self.capture
-        self.capture = np.array([[cone.x + self.xTrue[0, 0], cone.y + self.xTrue[0, 1]] for cone in msg.cones])
+        pos_x = self.xTrue[0, 0]
+        pos_y = self.xTrue[0, 1]
+        self.capture = np.array([[cone.x + pos_x, cone.y + pos_y] for cone in msg.cones])
         print(self.capture)
         # self.n_landmark = self.capture.shape[0]
 
