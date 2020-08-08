@@ -136,7 +136,7 @@ def calc_input(time):
         v = 0.0
         yaw_rate = 0.0
     else:
-        v = 1.0  # [m/s]
+        v = 3.0  # [m/s]
         yaw_rate = 0.1  # [rad/s]
 
     u = np.array([v, yaw_rate]).reshape(2, 1)
@@ -652,7 +652,7 @@ class Listener(BaseListener):
         # State variables
         self.x = None
         self.y = None
-        self.v = 1.0 # Velocity
+        self.v = 3.0 # Velocity
         self.yaw = 0.1 # Yaw rate
 
         self.capture = [] # For cone data from snapsot of camera
