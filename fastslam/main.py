@@ -653,7 +653,7 @@ class Listener(BaseListener):
         self.x = None
         self.y = None
         self.v = 1.0 # Velocity
-        self.yaw = 0.4 
+        self.yaw = 0.1 # Yaw rate
 
         self.capture = [] # For cone data from snapsot of camera
         self.n_landmark = 10 # Number of initial landmdarks
