@@ -238,8 +238,9 @@ def observation(xTrue, xd, u, data):
         # Get true distance d between pose and landmark
         dx = data[i, 0] - xTrue[0, 0]
         dy = data[i, 1] - xTrue[1, 0]
-        d = math.hypot(dx, dy)
-        angle = pi_2_pi(math.atan2(dy, dx) - xTrue[2, 0])
+        d = math.hypot(dx, dy) # Distance
+        angle = pi_2_pi(math.atan2(dy, dx) - xTrue[2, 0]) # Angle
+        print('Observation angle: ' + str(angle))
         zi = np.array([d, pi_2_pi(angle), i]).reshape(3, 1) # The predicted measurement
         z = np.hstack((z, zi)) # add prediction to stack of observations
 
@@ -712,6 +713,8 @@ class Listener(BaseListener):
 
         # Get observation
         self.xTrue, self.z, self.xDR, self.ud = observation(self.xTrue, self.xDR, self.u, self.capture)
+
+        print('xTrue Angle: ' + str(self.xTrue[2, 0]))
 
         # Run SLAM
         self.particles = fast_slam1(self.particles, self.ud, self.z)
