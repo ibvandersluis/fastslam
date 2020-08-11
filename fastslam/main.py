@@ -157,7 +157,7 @@ def motion_model(x, u):
     :param u: The input vector [Vt, Wt]
     :return: Returns new state vector x
     """
-    print ('RUNNING MOTION MODEL')
+    
     # A 3x3 matrix with one's passing through the diagonal
     F = np.array([[1.0, 0, 0],
                   [0, 1.0, 0],
@@ -672,7 +672,7 @@ class Listener(BaseListener):
         self.yaw = 0.1 # Yaw rate
 
         self.capture = [] # For cone data from snapsot of camera
-        self.n_landmark = 10 # Number of initial landmdarks
+        self.n_landmark = 15 # Number of initial landmdarks
 
 
         # State Vector [x y yaw]
