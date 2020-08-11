@@ -552,6 +552,7 @@ class Listener(BaseListener):
         # Set time
         global DT
         DT = (self.get_clock().now() - self.timer_last)
+        print(DT)
         DT /= 1000
         self.timer_last = self.get_clock().now()
         print('DT -- ' + str(DT) + 's')
