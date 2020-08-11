@@ -131,24 +131,6 @@ def calc_final_state(particles):
 
     return xEst
 
-def calc_input(time):
-    """
-    Calculate input vector
-
-    :param time: The elapsed time in seconds
-    :return: An input vector u containing the velocity and orientation
-    """
-    if time <= 3.0:  # wait at first
-        v = 0.0
-        yaw_rate = 0.0
-    else:
-        v = 1.0  # [m/s]
-        yaw_rate = 0.1  # [rad/s]
-
-    u = np.array([v, yaw_rate]).reshape(2, 1)
-
-    return u
-
 def motion_model(x, u):
     """
     Compute predictions for a particle
@@ -205,20 +187,6 @@ def pi_2_pi(angle):
     :return: Returns the angle after ensuring it is under +/- PI radians
     """
     return (angle + math.pi) % (2 * math.pi) - math.pi
-
-# END OF SNIPPET
-
-# N_LM = 0
-# particles = [Particle(N_LM) for i in range(N_PARTICLE)] # Generate array of 100 particles
-# time= 0.0
-# v = 1.0  # [m/s]
-# yawrate = 0.1  # [rad/s]
-# u = np.array([v, yawrate]).reshape(2, 1)
-# history = []
-# while SIM_TIME >= time:
-#     time += DT
-#     particles = predict_particles(particles, u)
-#     history.append(deepcopy(particles))
 
 # STEP 2: UPDATE
 
@@ -441,35 +409,6 @@ def update_landmark(particle, z, Q_cov):
 
     return particle
 
-# END OF CODE SNIPPET #
-
-
-
-# # Setting up the landmarks
-# RFID = np.array([[10.0, -2.0],
-#                 [15.0, 10.0]])
-# N_LM = RFID.shape[0]
-
-# # Initialize 1 particle
-# N_PARTICLE = 1
-# particles = [Particle(N_LM) for i in range(N_PARTICLE)]
-
-# xTrue = np.zeros((STATE_SIZE, 1))
-# xDR = np.zeros((STATE_SIZE, 1))
-
-# print("initial weight", particles[0].w)
-
-# xTrue, z, _, ud = observation(xTrue, xDR, u, RFID)
-# # Initialize landmarks
-# particles = update_with_observation(particles, z)
-# print("weight after landmark initialization", particles[0].w)
-# particles = update_with_observation(particles, z)
-# print("weight after update ", particles[0].w)
-
-# particles[0].x = -10
-# particles = update_with_observation(particles, z)
-# print("weight after wrong prediction", particles[0].w)
-
 # STEP 3: RESAMPLE
 
 def normalize_weight(particles):
@@ -538,124 +477,6 @@ def resampling(particles):
             particles[i].w = 1.0 / N_PARTICLE
 
     return particles
-# END OF SNIPPET #
-
-
-
-# def gaussian(x, mu, sig):
-#     return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
-
-# N_PARTICLE = 100
-# particles = [Particle(N_LM) for i in range(N_PARTICLE)]
-# x_pos = []
-# w = []
-# for i in range(N_PARTICLE):
-#     particles[i].x = np.linspace(-0.5,0.5,N_PARTICLE)[i]
-#     x_pos.append(particles[i].x)
-#     particles[i].w = gaussian(i, N_PARTICLE/2, N_PARTICLE/20)
-#     w.append(particles[i].w)
-
-
-# # Normalize weights
-# sw = sum(w)
-# for i in range(N_PARTICLE):
-#     w[i] /= sw
-
-# particles, new_indices = resampling(particles)
-# x_pos2 = []
-# for i in range(N_PARTICLE):
-#     x_pos2.append(particles[i].x)
-
-# # Plot results
-# fig, ((ax1,ax2,ax3)) = plt.subplots(nrows=3, ncols=1)
-# fig.tight_layout()
-# ax1.plot(x_pos,np.ones((N_PARTICLE,1)), '.r', markersize=2)
-# ax1.set_title("Particles before resampling")
-# ax1.axis((-1, 1, 0, 2))
-# ax2.plot(w)
-# ax2.set_title("Weights distribution")
-# ax3.plot(x_pos2,np.ones((N_PARTICLE,1)), '.r')
-# ax3.set_title("Particles after resampling")
-# ax3.axis((-1, 1, 0, 2))
-# fig.subplots_adjust(hspace=0.8)
-# plt.show()
-
-# plt.figure()
-# plt.hist(new_indices)
-# plt.xlabel("Particles indices to be resampled")
-# plt.ylabel("# of time index is used")
-# plt.show()
-
-# code from main function
-def pr_main():
-    print(__file__ + " start!!")
-
-    time = 0.0
-
-    # RFID positions [x, y]
-    RFID = np.array([[10.0, -2.0],
-                     [15.0, 10.0],
-                     [15.0, 15.0],
-                     [10.0, 20.0],
-                     [3.0, 15.0],
-                     [-5.0, 20.0],
-                     [-5.0, 5.0],
-                     [-10.0, 15.0]])
-    # numpy shape attribute is the dimensions of a matrix
-    n_landmark = RFID.shape[0] # the number of coordinate pairs on RFID
-
-    # State Vector [x y yaw v]'
-    xEst = np.zeros((STATE_SIZE, 1))  # SLAM estimation
-    xTrue = np.zeros((STATE_SIZE, 1))  # True state
-    xDR = np.zeros((STATE_SIZE, 1))  # Dead reckoning
-
-    # History
-    hxEst = xEst
-    hxTrue = xTrue
-    hxDR = xTrue
-
-    particles = [Particle(n_landmark) for _ in range(N_PARTICLE)]
-
-    while time:
-        time += DT # Increment time
-        u = calc_input(time) # Set input based on time
-
-        # Get observation
-        xTrue, z, xDR, ud = observation(xTrue, xDR, u, RFID)
-
-        # Run SLAM
-        particles = fast_slam1(particles, ud, z)
-
-        # Get state estimation
-        xEst = calc_final_state(particles)
-
-        # What does this do??
-        x_state = xEst[0: STATE_SIZE]
-
-        # Store data history
-        hxEst = np.hstack((hxEst, x_state))
-        hxDR = np.hstack((hxDR, xDR))
-        hxTrue = np.hstack((hxTrue, xTrue))
-
-        if show_animation:  # Pragma: no cover
-            plt.cla()
-            # for stopping simulation with the esc key.
-            plt.gcf().canvas.mpl_connect(
-                'key_release_event', lambda event:
-                [exit(0) if event.key == 'escape' else None])
-            plt.plot(RFID[:, 0], RFID[:, 1], "*k")
-
-            for i in range(N_PARTICLE):
-                plt.plot(particles[i].x, particles[i].y, ".r")
-                plt.plot(particles[i].lm[:, 0], particles[i].lm[:, 1], "xb")
-
-            plt.plot(hxTrue[0, :], hxTrue[1, :], "-b")
-            plt.plot(hxDR[0, :], hxDR[1, :], "-k")
-            plt.plot(hxEst[0, :], hxEst[1, :], "-r")
-            plt.plot(xEst[0], xEst[1], "xk")
-            plt.axis("equal")
-            plt.grid(True)
-            plt.pause(0.001)
 
 # --- END CODE FROM PYTHON ROBOTICS / ATSUSHI SAKAI ---
 
