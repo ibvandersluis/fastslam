@@ -61,6 +61,7 @@ STATE_SIZE = 3  # State size [x, y, yaw]
 LM_SIZE = 2  # LM state size [x,y]
 N_PARTICLE = 100  # number of particle
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
+PARTICLE_ITERATION = 0 # n for the nth particle production
 
 show_animation = True
 
@@ -73,6 +74,9 @@ class Particle:
         :param n_landmark: The landmark number
         :return: Returns nothing
         """
+        global PARTICLE_ITERATION
+        PARTICLE_ITERATION += 1
+        print('Creating particle #' + str(PARTICLE_ITERATION))
         
         self.w = 1.0 / N_PARTICLE # Particle weight
         self.x = 0.0 # X pos
@@ -92,6 +96,7 @@ def fast_slam1(particles, u, z):
     :param z: The observation
     :return: Returns updated particles (position and landmarks)
     """
+    print('RUNNING SLAM')
 
     # Step 1: predict
     particles = predict_particles(particles, u)
@@ -111,7 +116,8 @@ def calc_final_state(particles):
     :param particles: An array of particles
     :return: xEst, the state vector
     """
-    xEst = np.zeros((STATE_SIZE, 1)) # Empty state vector for: y, y, yaw
+    print('CALCULATING FINAL STATE')
+    xEst = np.zeros((STATE_SIZE, 1)) # Empty state vector for: x, y, yaw
 
     particles = normalize_weight(particles)
 
@@ -151,7 +157,7 @@ def motion_model(x, u):
     :param u: The input vector [Vt, Wt]
     :return: Returns new state vector x
     """
-
+    print ('RUNNING MOTION MODEL')
     # A 3x3 matrix with one's passing through the diagonal
     F = np.array([[1.0, 0, 0],
                   [0, 1.0, 0],
@@ -176,6 +182,8 @@ def predict_particles(particles, u):
     :param u: An input vector [Vt, Wt] where Vt = velocity and Wt = 
     :return: Returns predictions as particles
     """
+    print('PREDICTING PARTICLES')
+
     for i in range(N_PARTICLE):
         px = np.zeros((STATE_SIZE, 1)) # Creates 3x1 matrix of zeros for x, y, yaw
         px[0, 0] = particles[i].x # Populates top place in matrix with current particle x position
@@ -228,6 +236,8 @@ def observation(xTrue, xd, u, data):
         xd - sate expectation
         ud - Input with noise
     """
+    print('MAKING OBSERVATION')
+
     # calc true state
     xTrue = motion_model(xTrue, u)
 
@@ -261,6 +271,8 @@ def update_with_observation(particles, z):
     :param z: An observation (array of landmarks, each [dist, theta, id])
     :return: Returns updated particles
     """
+    print('UPDATING WITH OBSERVATION')
+
     # For each landmark in the observation
     for iz in range(len(z[0, :])):
 
@@ -352,6 +364,8 @@ def add_new_landmark(particle, z, Q_cov):
     :param Q_cov: A covariance matrix of process noise
     :return: A particle
     """
+    print('ADDING NEW LANDMARK')
+
     r = z[0]
     b = z[1]
     lm_id = int(z[2])
@@ -410,6 +424,8 @@ def update_landmark(particle, z, Q_cov):
     :param Q_cov: A covariance matrix of process noise
     :return: A particle
     """
+    print('UPDATING LANDMARK')
+
     lm_id = int(z[2])
     xf = np.array(particle.lm[lm_id, :]).reshape(2, 1)
     Pf = np.array(particle.lmP[2 * lm_id:2 * lm_id + 2, :])
@@ -485,6 +501,7 @@ def resampling(particles):
     :param particles: An array of particles
     :return: An array of particles
     """
+    print('RESAMPLING')
 
     # Normalize weights
     particles = normalize_weight(particles)
@@ -748,7 +765,7 @@ class Listener(BaseListener):
         plt.plot(self.hxTrue[0, :], self.hxTrue[1, :], "-b") # Plot xTrue with solid blue line
         plt.plot(self.hxDR[0, :], self.hxDR[1, :], "-k") # Plot dead reckoning with solid black line
         plt.plot(self.hxEst[0, :], self.hxEst[1, :], "-r") # Plot xEst with solid red line
-        plt.plot(self.xEst[0], self.xEst[1], "xk") # Plot current xEst as red x
+        plt.plot(self.xEst[0], self.xEst[1], "xk") # Plot current xEst as black x
         plt.axis("equal")
         plt.grid(True)
         plt.pause(0.001)
