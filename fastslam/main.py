@@ -16,6 +16,7 @@ import rclpy
 import numpy as np
 import matplotlib.pyplot as plt
 import math
+import time
 from copy import deepcopy
 from helpers.listener import BaseListener
 from helpers import shortcuts
@@ -492,6 +493,8 @@ class Listener(BaseListener):
         self.v = 1.0 # Velocity
         self.yaw = 0.1 # Yaw rate
 
+        self.time = 0.0 # Time since last SLAM iteration
+        self.timer_last = time.time()
         self.capture = [] # For cone data from snapsot of camera
         self.n_landmark = 15 # Number of initial landmdarks
 
@@ -546,7 +549,14 @@ class Listener(BaseListener):
         # Place x y positions of cones into self.capture
         self.capture = np.array([[cone.x, cone.y] for cone in msg.cones])
         print(self.capture)
-        # self.n_landmark = self.capture.shape[0]
+
+        # Set time
+        global DT
+        now = time.time()
+        self.time = self.timer_last - now
+        self.timer_last = now
+        DT = self.time
+        print('DT -- ' + str(DT) + 's')
 
         # Get observation
         self.xTrue, self.z, self.xDR, self.ud = observation(self.xTrue, self.xDR, self.u, self.capture)
