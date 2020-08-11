@@ -736,16 +736,19 @@ class Listener(BaseListener):
         plt.gcf().canvas.mpl_connect(
             'key_release_event', lambda event:
             [exit(0) if event.key == 'escape' else None])
-        plt.plot(self.capture[:, 0], self.capture[:, 1], "*k")
+        # Plot landmarks as black stars
+        plt.plot(self.capture[:, 0] + self.xTrue[0, 0], self.capture[:, 1] + self.xTrue[1, 0], "*k")
 
         for i in range(N_PARTICLE):
+            # Plot location estimates as red dots
             plt.plot(self.particles[i].x, self.particles[i].y, ".r")
+            # Plot landmark estimates as blue X's
             plt.plot(self.particles[i].lm[:, 0], self.particles[i].lm[:, 1], "xb")
 
-        plt.plot(self.hxTrue[0, :], self.hxTrue[1, :], "-b")
-        plt.plot(self.hxDR[0, :], self.hxDR[1, :], "-k")
-        plt.plot(self.hxEst[0, :], self.hxEst[1, :], "-r")
-        plt.plot(self.xEst[0], self.xEst[1], "xk")
+        plt.plot(self.hxTrue[0, :], self.hxTrue[1, :], "-b") # Plot xTrue with solid blue line
+        plt.plot(self.hxDR[0, :], self.hxDR[1, :], "-k") # Plot dead reckoning with solid black line
+        plt.plot(self.hxEst[0, :], self.hxEst[1, :], "-r") # Plot xEst with solid red line
+        plt.plot(self.xEst[0], self.xEst[1], "xk") # Plot current xEst as red x
         plt.axis("equal")
         plt.grid(True)
         plt.pause(0.001)
