@@ -582,7 +582,9 @@ class Listener(BaseListener):
             'key_release_event', lambda event:
             [exit(0) if event.key == 'escape' else None])
         # Plot landmarks as black stars relative to xEst
-        plt.plot(self.capture[:, 0] + self.xEst[0, 0], self.capture[:, 1] + self.xEst[1, 0], "*k")
+        # plt.plot(self.capture[:, 0] + self.xEst[0, 0], self.capture[:, 1] + self.xEst[1, 0], "*k")
+        plt.plot(self.xEst[0, 0] + self.z[0, :] * math.cos(self.z[1, :] + self.xEst[2, 0]),
+                 self.xEst[1, 0] + self.z[0, :] * math.sin(self.z[1, :] + self.xEst[2, 0]))
 
         for i in range(N_PARTICLE):
             # Plot location estimates as red dots
