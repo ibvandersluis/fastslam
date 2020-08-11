@@ -493,7 +493,7 @@ class Listener(BaseListener):
         self.v = 1.0 # Velocity
         self.yaw = 0.1 # Yaw rate
 
-        self.timer_last = self.get_clock().now()
+        self.timer_last = self.get_clock().now().nanoseconds
         self.capture = [] # For cone data from snapsot of camera
         self.n_landmark = 15 # Number of initial landmdarks
 
@@ -551,10 +551,10 @@ class Listener(BaseListener):
 
         # Set time
         global DT
-        DT = (self.get_clock().now() - self.timer_last)
+        DT = (self.get_clock().now().nanoseconds - self.timer_last)
         print(DT)
-        DT /= 1000
-        self.timer_last = self.get_clock().now()
+        DT /= 1000000000
+        self.timer_last = self.get_clock().now().nanoseconds
         print('DT -- ' + str(DT) + 's')
 
         # Get observation
