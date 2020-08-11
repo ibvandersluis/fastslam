@@ -589,7 +589,7 @@ class Listener(BaseListener):
             yaw = self.xEst[2, 0]
             d = self.z[0, i]
             theta = self.z[1, i]
-            plt.plot(x + d * math.cos(theta + yaw), y + d * math.sin(theta + yaw), "*k")
+            plt.plot(x + d * math.cos(pi_2_pi(theta + yaw)), y + d * math.sin(pi_2_pi(theta + yaw)), "*k")
 
         for i in range(N_PARTICLE):
             # Plot location estimates as red dots
