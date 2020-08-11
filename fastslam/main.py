@@ -493,8 +493,7 @@ class Listener(BaseListener):
         self.v = 1.0 # Velocity
         self.yaw = 0.1 # Yaw rate
 
-        self.time = 0.0 # Time since last SLAM iteration
-        self.timer_last = time.time()
+        self.timer_last = self.get_clock().now()
         self.capture = [] # For cone data from snapsot of camera
         self.n_landmark = 15 # Number of initial landmdarks
 
@@ -552,10 +551,8 @@ class Listener(BaseListener):
 
         # Set time
         global DT
-        now = time.time()
-        self.time = now - self.timer_last
-        self.timer_last = now
-        DT = self.time
+        DT = (self.get_clock().now() - self.timer_last)/1000
+        self.timer_last = self.get_clock().now()
         print('DT -- ' + str(DT) + 's')
 
         # Get observation
