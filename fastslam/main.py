@@ -586,11 +586,11 @@ class Listener(BaseListener):
         
         # Convert z observations to absolute positions and plot
         for i in range(len(self.z[0, :])):
-            x = self.xEst[0, 0]
-            y = self.xEst[1, 0]
-            yaw = self.xEst[2, 0]
-            d = self.z[0, i]
-            theta = self.z[1, i]
+            x = self.xEst[0, 0] # X pos
+            y = self.xEst[1, 0] # Y pos
+            yaw = self.xEst[2, 0] # Orientation
+            d = self.z[0, i] # Distance from vehicle
+            theta = self.z[1, i] # Angle of observation
             plt.plot(x + d * math.cos(pi_2_pi(theta + yaw)), y + d * math.sin(pi_2_pi(theta + yaw)), "*k")
 
         for i in range(N_PARTICLE):
