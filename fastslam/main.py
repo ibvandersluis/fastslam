@@ -553,7 +553,7 @@ class Listener(BaseListener):
         # Set time
         global DT
         now = time.time()
-        self.time = self.timer_last - now
+        self.time = now - self.timer_last
         self.timer_last = now
         DT = self.time
         print('DT -- ' + str(DT) + 's')
