@@ -136,7 +136,7 @@ def calc_input(time):
         v = 0.0
         yaw_rate = 0.0
     else:
-        v = 3.0  # [m/s]
+        v = 1.0  # [m/s]
         yaw_rate = 0.1  # [rad/s]
 
     u = np.array([v, yaw_rate]).reshape(2, 1)
@@ -236,10 +236,10 @@ def observation(xTrue, xd, u, data):
     # For each landmark
     for i in range(len(data[:, 0])):
         # Get true distance d between pose and landmark
-        dx = data[i, 0] - xTrue[0, 0]
-        dy = data[i, 1] - xTrue[1, 0]
+        dx = data[i, 0] # dx = x
+        dy = data[i, 1] # dy = y
         d = math.hypot(dx, dy) # Distance
-        angle = pi_2_pi(math.atan2(dy, dx) - xTrue[2, 0]) # Angle
+        angle = pi_2_pi(math.atan2(dy, dx)) # Angle
         print('Observation angle: ' + str(angle))
         zi = np.array([d, pi_2_pi(angle), i]).reshape(3, 1) # The predicted measurement
         z = np.hstack((z, zi)) # add prediction to stack of observations
@@ -652,7 +652,7 @@ class Listener(BaseListener):
         # State variables
         self.x = None
         self.y = None
-        self.v = 3.0 # Velocity
+        self.v = 1.0 # Velocity
         self.yaw = 0.1 # Yaw rate
 
         self.capture = [] # For cone data from snapsot of camera
@@ -707,7 +707,7 @@ class Listener(BaseListener):
 
     def cones_callback(self, msg: ConeArray):
         # Place x y positions of cones into self.capture
-        self.capture = np.array([[cone.x + self.xTrue[0, 0], cone.y + self.xTrue[1, 0]] for cone in msg.cones])
+        self.capture = np.array([[cone.x, cone.y] for cone in msg.cones])
         print(self.capture)
         # self.n_landmark = self.capture.shape[0]
 
