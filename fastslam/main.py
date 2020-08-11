@@ -424,7 +424,6 @@ def update_landmark(particle, z, Q_cov):
     :param Q_cov: A covariance matrix of process noise
     :return: A particle
     """
-    print('UPDATING LANDMARK')
 
     lm_id = int(z[2])
     xf = np.array(particle.lm[lm_id, :]).reshape(2, 1)
