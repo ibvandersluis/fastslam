@@ -552,9 +552,8 @@ class Listener(BaseListener):
         # Set time
         global DT
         DT = (self.get_clock().now().nanoseconds - self.timer_last)
-        print(DT)
-        DT /= 1000000000
-        self.timer_last = self.get_clock().now().nanoseconds
+        DT /= 1000000000 # Nanoseconds to seconds
+        self.timer_last = self.get_clock().now().nanoseconds # Set timer_last as current nanoseconds
         print('DT -- ' + str(DT) + 's')
 
         # Get observation
@@ -582,8 +581,8 @@ class Listener(BaseListener):
         plt.gcf().canvas.mpl_connect(
             'key_release_event', lambda event:
             [exit(0) if event.key == 'escape' else None])
-        # Plot landmarks as black stars
-        plt.plot(self.capture[:, 0] + self.xTrue[0, 0], self.capture[:, 1] + self.xTrue[1, 0], "*k")
+        # Plot landmarks as black stars relative to xEst
+        plt.plot(self.capture[:, 0] + self.xEst[0, 0], self.capture[:, 1] + self.xEst[1, 0], "*k")
 
         for i in range(N_PARTICLE):
             # Plot location estimates as red dots
