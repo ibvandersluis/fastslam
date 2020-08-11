@@ -219,7 +219,7 @@ def observation(xTrue, xd, u, data):
         dy = data[i, 1] # dy = y
         d = math.hypot(dx, dy) # Distance
         angle = pi_2_pi(math.atan2(dy, dx)) # Angle
-        print('Observation angle: ' + str(angle))
+        print('Observation angle: ' + str(pi_2_pi(angle)))
         zi = np.array([d, pi_2_pi(angle), i]).reshape(3, 1) # The predicted measurement
         z = np.hstack((z, zi)) # add prediction to stack of observations
 
@@ -583,13 +583,15 @@ class Listener(BaseListener):
             [exit(0) if event.key == 'escape' else None])
         # Plot landmarks as black stars relative to xEst
         # plt.plot(self.capture[:, 0] + self.xEst[0, 0], self.capture[:, 1] + self.xEst[1, 0], "*k")
+        
+        # Convert z observations to absolute positions and plot
         for i in range(len(self.z[0, :])):
             x = self.xEst[0, 0]
             y = self.xEst[1, 0]
             yaw = self.xEst[2, 0]
             d = self.z[0, i]
             theta = self.z[1, i]
-            plt.plot(x + d * math.cos(pi_2_pi(theta - yaw)), y + d * math.sin(pi_2_pi(theta - yaw)), "*k")
+            plt.plot(x + d * math.cos(pi_2_pi(theta + yaw)), y + d * math.sin(pi_2_pi(theta + yaw)), "*k")
 
         for i in range(N_PARTICLE):
             # Plot location estimates as red dots
