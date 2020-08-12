@@ -519,7 +519,7 @@ class Listener(BaseListener):
 
         self.timer_last = self.get_clock().now().nanoseconds
         self.capture = [] # For cone data from snapsot of camera
-        self.n_landmark = 15 # Number of initial landmdarks
+        self.n_landmark = 7 # Number of initial landmdarks
 
 
         # State Vector [x y yaw]
