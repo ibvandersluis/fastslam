@@ -276,14 +276,17 @@ def update_with_observation(particles, z):
 
         for ip in range(N_PARTICLE):
             # Add new landmark if likelihood is less than 1%
-            # if particles[ip].lm[landmark_id, 2]) <= 0.01:
-            if abs(particles[ip].lm[landmark_id, 0]) <= 0.01:
+            try:
+                # if particles[ip].lm[landmark_id, 2]) <= 0.01:
+                if abs(particles[ip].lm[landmark_id, 0]) <= 0.01:
+                    particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
+                # Else update the known landmark
+                else:
+                    w = compute_weight(particles[ip], z[:, iz], Q)
+                    particles[ip].w *= w
+                    particles[ip] = update_landmark(particles[ip], z[:, iz], Q)
+            except:
                 particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
-            # Else update the known landmark
-            else:
-                w = compute_weight(particles[ip], z[:, iz], Q)
-                particles[ip].w *= w
-                particles[ip] = update_landmark(particles[ip], z[:, iz], Q)
 
     return particles
 
@@ -370,7 +373,7 @@ def add_new_landmark(particle, z, Q_cov):
 
     # particle.lm[lm_id, 0] = particle.x + r * c
     # particle.lm[lm_id, 1] = particle.y + r * s
-    np.append(particle.lm, [particle.x + r * c, particle.y + r * s, 1.0]) # Add new lm to array
+    particle.lm = np.append(particle.lm, [particle.x + r * c, particle.y + r * s, 1.0]) # Add new lm to array
     print(particle.lm)
 
     # covariance
