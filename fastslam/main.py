@@ -35,8 +35,17 @@ def observation_model(particles, x, u):
 
     :param particles: An array of particles
     :param x: The state vector
-    :param u: The input vector velocity and yaw
+    :param u: The input vector: velocity and yaw
     """
+
+    F = np.array([[1.0, 0],
+                  [0, 1.0]])
+
+    B = np.array([[DT * math.cos(x[2, 0] - math.pi), 0],
+                  [DT * math.sin(x[2, 0] - math.pi), 0]])
+
+    # for i in range(N_PARTICLE)
+
 
 
 
@@ -74,8 +83,6 @@ LM_SIZE = 2  # LM state size [x,y]
 N_PARTICLE = 100  # number of particle
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 PARTICLE_ITERATION = 0 # n for the nth particle production
-
-show_animation = True
 
 class Particle:
 
@@ -525,6 +532,8 @@ class Listener(BaseListener):
         self.u = np.array([self.v, self.yaw]).reshape(2, 1)
         self.ud = None
         self.z = None
+        self.count = 0
+        self.debug = 0
 
 
 
@@ -575,6 +584,22 @@ class Listener(BaseListener):
         # Run SLAM
         self.particles = fast_slam1(self.particles, self.ud, self.z)
 
+        # Increment counter
+        self.count += 1
+        # Dump particle lm arrays to text file
+        if (self.count >= 10):
+            self.debug += 1
+            file = 'debug' + str(self.debug) + '.txt'
+            f = open(file, 'w')
+            pnum = 0
+            for particle in self.particles:
+                pnum += 1
+                f.write('Particle #' + str(pnum) + ':\n')
+                for i in range(len(particle.lm[0, :])):
+                    f.write('lm #' + i + '-- x: ' + str(particle.lm[i, 0])
+                            + ', y: ' + str(particle.lm[i, 1]))
+
+
         # Get state estimation
         self.xEst = calc_final_state(self.particles)
         self.x = self.xEst[0, 0]
@@ -621,7 +646,7 @@ class Listener(BaseListener):
         plt.pause(0.001)
 
     def control_callback(self, msg: Twist):
-        print(msg)
+        str(msg) # For some reason this is needed to access msg.linear.x
         self.v = msg.linear.x
         self.yaw = msg.angular.z
         self.u = np.array([self.v, self.yaw]).reshape(2, 1)
