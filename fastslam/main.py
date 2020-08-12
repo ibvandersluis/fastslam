@@ -86,7 +86,7 @@ OFFSET_YAW_RATE_NOISE = 0.01
 DT = 0.2  # time tick [s]
 M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
 STATE_SIZE = 3  # State size [x, y, yaw]
-LM_SIZE = 2  # LM state size [x, y, probability]
+LM_SIZE = 3  # LM state size [x, y, probability]
 N_PARTICLE = 100  # number of particle
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 PARTICLE_ITERATION = 0 # n for the nth particle production
@@ -111,7 +111,7 @@ class Particle:
         # Landmark x-y positions
         self.lm = np.zeros((n_landmark, LM_SIZE))
         # Landmark position covariance
-        self.lmP = np.zeros((n_landmark * LM_SIZE, LM_SIZE))
+        self.lmP = np.zeros((n_landmark * (LM_SIZE - 1), LM_SIZE -1))
 
 def fast_slam1(particles, u, z):
     """
