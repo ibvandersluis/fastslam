@@ -51,7 +51,9 @@ def observation_model(particles, x, u, z):
             d = math.sqrt(d2)
 
             zp = np.array([d, pi_2_pi(math.atan2(dy, dx) - particle.yaw)]).reshape(2, 1)
-
+            
+            dz = z[i, 0:2].reshape(2, 1) - zp
+            dz[1, 0] = pi_2_pi(dz[1, 0])
 
 
 
@@ -358,7 +360,6 @@ def add_new_landmark(particle, z, Q_cov):
     :param Q_cov: A covariance matrix of process noise
     :return: A particle
     """
-    print('ADDING NEW LANDMARK')
 
     r = z[0]
     b = z[1]
@@ -367,9 +368,12 @@ def add_new_landmark(particle, z, Q_cov):
     s = math.sin(pi_2_pi(particle.yaw + b))
     c = math.cos(pi_2_pi(particle.yaw + b))
 
-    particle.lm[lm_id, 0] = particle.x + r * c
-    particle.lm[lm_id, 1] = particle.y + r * s
-    # np.append(particle.lm, [particle.x + r * c, particle.y + r * s, 1.0]) # Add new lm to array
+    # particle.lm[lm_id, 0] = particle.x + r * c
+    # particle.lm[lm_id, 1] = particle.y + r * s
+    np.append(particle.lm, [particle.x + r * c, particle.y + r * s, 1.0]) # Add new lm to array
+    print(particle.x + r * c)
+    print(particle.y + r * s)
+    print(particle.lm)
 
     # covariance
     dx = r * c
@@ -418,6 +422,7 @@ def update_landmark(particle, z, Q_cov):
     :param Q_cov: A covariance matrix of process noise
     :return: A particle
     """
+    print('UPDATING LANDMARK')
 
     lm_id = int(z[2])
     xf = np.array(particle.lm[lm_id, :]).reshape(3, 1)
