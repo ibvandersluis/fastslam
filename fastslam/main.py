@@ -373,7 +373,7 @@ def add_new_landmark(particle, z, Q_cov):
 
     # particle.lm[lm_id, 0] = particle.x + r * c
     # particle.lm[lm_id, 1] = particle.y + r * s
-    particle.lm = np.append(particle.lm, [particle.x + r * c, particle.y + r * s, 1.0]) # Add new lm to array
+    particle.lm = np.append(particle.lm, [[particle.x + r * c, particle.y + r * s, 1.0]]) # Add new lm to array
 
     # covariance
     dx = r * c
@@ -526,7 +526,7 @@ class Listener(BaseListener):
 
         self.timer_last = self.get_clock().now().nanoseconds
         self.capture = [] # For cone data from snapsot of camera
-        self.n_landmark = 2 # Number of initial landmdarks
+        self.n_landmark = 0 # Number of initial landmdarks
 
 
         # State Vector [x y yaw]
@@ -650,8 +650,7 @@ class Listener(BaseListener):
             # Plot location estimates as red dots
             plt.plot(self.particles[i].x, self.particles[i].y, ".r")
             # Plot landmark estimates as blue X's
-            for j in range(len(self.particles[i].lm[:, 0])):
-                plt.plot(self.particles[i].lm[j, 0], self.particles[i].lm[j, 1], "xb")
+            plt.plot(self.particles[i].lm[:, 0], self.particles[i].lm[:, 1], "xb")
 
         plt.plot(self.hxTrue[0, :], self.hxTrue[1, :], "-b") # Plot xTrue with solid blue line
         plt.plot(self.hxDR[0, :], self.hxDR[1, :], "-k") # Plot dead reckoning with solid black line
