@@ -596,8 +596,10 @@ class Listener(BaseListener):
                 pnum += 1
                 f.write('Particle #' + str(pnum) + ':\n')
                 for i in range(len(particle.lm[0, :])):
-                    f.write('lm #' + i + '-- x: ' + str(particle.lm[i, 0])
+                    f.write('lm #' + str(i) + '-- x: ' + str(particle.lm[i, 0])
                             + ', y: ' + str(particle.lm[i, 1]))
+            f.close()
+            self.count = 0
 
 
         # Get state estimation
