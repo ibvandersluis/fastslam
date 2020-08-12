@@ -376,8 +376,7 @@ def add_new_landmark(particle, z, Q_cov):
     d = math.sqrt(d2) # Get distance
     Gz = np.array([[dx / d, dy / d],
                    [-dy / d2, dx / d2]])
-    particle.lmP[2 * lm_id:2 * lm_id + 2] = np.linalg.inv(
-        Gz) @ Q_cov @ np.linalg.inv(Gz.T)
+    particle.lmP[3 * lm_id:3 * lm_id + 3] = np.linalg.inv(Gz) @ Q_cov @ np.linalg.inv(Gz.T)
 
     return particle
 
