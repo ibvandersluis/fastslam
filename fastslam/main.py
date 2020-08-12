@@ -371,8 +371,6 @@ def add_new_landmark(particle, z, Q_cov):
     # particle.lm[lm_id, 0] = particle.x + r * c
     # particle.lm[lm_id, 1] = particle.y + r * s
     np.append(particle.lm, [particle.x + r * c, particle.y + r * s, 1.0]) # Add new lm to array
-    print(particle.x + r * c)
-    print(particle.y + r * s)
     print(particle.lm)
 
     # covariance
@@ -525,7 +523,7 @@ class Listener(BaseListener):
 
         self.timer_last = self.get_clock().now().nanoseconds
         self.capture = [] # For cone data from snapsot of camera
-        self.n_landmark = 20 # Number of initial landmdarks
+        self.n_landmark = 0 # Number of initial landmdarks
 
 
         # State Vector [x y yaw]
