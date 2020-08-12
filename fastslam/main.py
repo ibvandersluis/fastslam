@@ -29,23 +29,28 @@ from gazebo_msgs.msg import LinkStates
 
 shortcuts.hint()
 
-def observation_model(particles, x, u):
+def observation_model(particles, x, u, z):
     """
     Compute predictions for relative location of landmarks
 
     :param particles: An array of particles
     :param x: The state vector
     :param u: The input vector: velocity and yaw
+    :param z: The observations
+    :return:
     """
 
-    F = np.array([[1.0, 0],
-                  [0, 1.0]])
+    pnum = 0
+    for particle in particles:
+        pnum += 1
+        for i in range(len(particle.lm[0, :])):
+            xf = np.array(particle.lm[i, :]).reshape(3, 1)
+            dx = xf[0, 0] - particle.x
+            dy = xf[1, 0] - particle.y
+            d2 = dx ** 2 + dy ** 2
+            d = math.sqrt(d2)
 
-    B = np.array([[DT * math.cos(x[2, 0] - math.pi), 0],
-                  [DT * math.sin(x[2, 0] - math.pi), 0]])
-
-    # for i in range(N_PARTICLE)
-
+            zp = np.array([d, pi_2_pi(math.atan2(dy, dx) - particle.yaw)]).reshape(2, 1)
 
 
 
@@ -79,7 +84,7 @@ OFFSET_YAW_RATE_NOISE = 0.01
 DT = 0.2  # time tick [s]
 M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
 STATE_SIZE = 3  # State size [x, y, yaw]
-LM_SIZE = 2  # LM state size [x,y]
+LM_SIZE = 3  # LM state size [x, y, probability]
 N_PARTICLE = 100  # number of particle
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 PARTICLE_ITERATION = 0 # n for the nth particle production
@@ -267,6 +272,7 @@ def update_with_observation(particles, z):
 
         for ip in range(N_PARTICLE):
             # Add new landmark if likelihood is less than 1%
+            # if particles[ip].lm[landmark_id, 2]) <= 0.01:
             if abs(particles[ip].lm[landmark_id, 0]) <= 0.01:
                 particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
             # Else update the known landmark
@@ -286,9 +292,9 @@ def compute_weight(particle, z, Q_cov):
     :param Q_cov: The measurement covariance
     :return: Returns particle weight
     """
-    lm_id = int(z[2])
-    xf = np.array(particle.lm[lm_id, :]).reshape(2, 1)
-    Pf = np.array(particle.lmP[2 * lm_id:2 * lm_id + 2])
+    lm_id = int(z[2]) # Get landmark id from z
+    xf = np.array(particle.lm[lm_id, :]).reshape(3, 1) # The state of a landmark from a particle
+    Pf = np.array(particle.lmP[2 * lm_id:2 * lm_id + 2]) # ??
     zp, Hv, Hf, Sf = compute_jacobians(particle, xf, Pf, Q_cov)
 
     dx = z[0:2].reshape(2, 1) - zp
@@ -359,8 +365,9 @@ def add_new_landmark(particle, z, Q_cov):
     s = math.sin(pi_2_pi(particle.yaw + b))
     c = math.cos(pi_2_pi(particle.yaw + b))
 
-    particle.lm[lm_id, 0] = particle.x + r * c
-    particle.lm[lm_id, 1] = particle.y + r * s
+    # particle.lm[lm_id, 0] = particle.x + r * c
+    # particle.lm[lm_id, 1] = particle.y + r * s
+    np.append(particle.lm, [particle.x + r * c, particle.y + r * s, 1.0])
 
     # covariance
     dx = r * c
@@ -412,7 +419,7 @@ def update_landmark(particle, z, Q_cov):
     """
 
     lm_id = int(z[2])
-    xf = np.array(particle.lm[lm_id, :]).reshape(2, 1)
+    xf = np.array(particle.lm[lm_id, :]).reshape(3, 1)
     Pf = np.array(particle.lmP[2 * lm_id:2 * lm_id + 2, :])
 
     zp, Hv, Hf, Sf = compute_jacobians(particle, xf, Pf, Q)
@@ -596,11 +603,10 @@ class Listener(BaseListener):
                 pnum += 1
                 f.write('--- Particle #' + str(pnum) + ':\n')
                 for i in range(len(particle.lm[:, 0])):
-                    f.write('lm #' + str(i) + ' -- x: ' + str(particle.lm[i, 0])
+                    f.write('lm #' + str(i + 1) + ' -- x: ' + str(particle.lm[i, 0])
                             + ', y: ' + str(particle.lm[i, 1]) + '\n')
             f.close()
             self.count = 0
-
 
         # Get state estimation
         self.xEst = calc_final_state(self.particles)
