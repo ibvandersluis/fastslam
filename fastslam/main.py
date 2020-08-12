@@ -29,6 +29,16 @@ from gazebo_msgs.msg import LinkStates
 
 shortcuts.hint()
 
+def observation_model(particles, u):
+    """
+    Estimates the expected relative locations of the landmarks
+
+    :param particles: An array of particles
+    :param u: The input vector velocity and yaw
+    """
+
+
+
 # --- CODE FROM PYTHON ROBOTICS / ATSUSHI SAKAI ---
 
 # Code mostly by Atsushi Sakai
@@ -490,8 +500,8 @@ class Listener(BaseListener):
         # State variables
         self.x = None
         self.y = None
-        self.v = 1.0 # Velocity
-        self.yaw = 0.1 # Yaw rate
+        self.v = 0.0 # Velocity, m/s
+        self.yaw = 0.0 # Yaw rate, rad/s
 
         self.timer_last = self.get_clock().now().nanoseconds
         self.capture = [] # For cone data from snapsot of camera
@@ -522,12 +532,13 @@ class Listener(BaseListener):
         self.cones_sub = self.create_subscription(ConeArray, '/cones/positions', self.cones_callback, 10)
         self.gnss_sub = self.create_subscription(NavSatFix, '/peak_gps/gps', self.gnss_callback, 10)
         self.imu_sub = self.create_subscription(IMU, '/peak_gps/imu', self.imu_callback, 10)
+        self.control_sub = self.create_subscription(Twist, '/gazebo/cmd_vel', self.control_callback, 10)
         # self.wss_sub = self.create_subscription(WheelSpeeds, '/can/ws', self.wss_callback, 10)
 
         # gets links (all objects) from gazebo
         self.link_sub = self.create_subscription(LinkStates, "/gazebo/link_states", self.link_states_callback, 10)
 
-        # ros2 topic pub /gazebo/cmd_vel geometry_msgs/Twist '{linear: {x: 1.0}, angular: {z: 1.0}}' 
+        # ros2 topic pub /gazebo/cmd_vel geometry_msgs/Twist '{linear: {x: 1.0}, angular: {z: 0.1}}' 
 
         # Set publishers
         self.map_pub = self.create_publisher(ConeArray, '/mapping/map', 10)
@@ -566,6 +577,8 @@ class Listener(BaseListener):
 
         # Get state estimation
         self.xEst = calc_final_state(self.particles)
+        self.x = self.xEst[0, 0]
+        self.y = self.xEst[1, 0]
 
         # Boundary check
         self.x_state = self.xEst[0: STATE_SIZE]
@@ -606,6 +619,13 @@ class Listener(BaseListener):
         plt.axis("equal")
         plt.grid(True)
         plt.pause(0.001)
+
+    def control_callback(self, msg: Twist):
+        self.v = msg.linear.x
+        self.yaw = msg.angular.z
+        self.u = np.array([self.v, self.yaw]).reshape(2, 1)
+
+        self.get_logger().info(f'Command confirmed: {msg.linear.x} m/s turning at {msg.angular.z} rad/s')
 
     def gnss_callback(self, msg: NavSatFix()):
         # Log data retrieval
