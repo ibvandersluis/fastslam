@@ -109,7 +109,7 @@ class Particle:
         # Landmark x-y positions
         self.lm = np.zeros((n_landmark, LM_SIZE))
         # Landmark position covariance
-        self.lmP = np.zeros((n_landmark * LM_SIZE, LM_SIZE))
+        self.lmP = np.zeros((n_landmark * (LM_SIZE - 1), LM_SIZE - 1))
 
 def fast_slam1(particles, u, z):
     """
@@ -376,7 +376,7 @@ def add_new_landmark(particle, z, Q_cov):
     d = math.sqrt(d2) # Get distance
     Gz = np.array([[dx / d, dy / d],
                    [-dy / d2, dx / d2]])
-    particle.lmP[3 * lm_id:3 * lm_id + 3] = np.linalg.inv(Gz) @ Q_cov @ np.linalg.inv(Gz.T)
+    particle.lmP[2 * lm_id:2 * lm_id + 2] = np.linalg.inv(Gz) @ Q_cov @ np.linalg.inv(Gz.T)
 
     return particle
 
