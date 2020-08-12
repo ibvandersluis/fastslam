@@ -367,9 +367,9 @@ def add_new_landmark(particle, z, Q_cov):
     s = math.sin(pi_2_pi(particle.yaw + b))
     c = math.cos(pi_2_pi(particle.yaw + b))
 
-    # particle.lm[lm_id, 0] = particle.x + r * c
-    # particle.lm[lm_id, 1] = particle.y + r * s
-    np.append(particle.lm, [particle.x + r * c, particle.y + r * s, 1.0]) # Add new lm to array
+    particle.lm[lm_id, 0] = particle.x + r * c
+    particle.lm[lm_id, 1] = particle.y + r * s
+    # np.append(particle.lm, [particle.x + r * c, particle.y + r * s, 1.0]) # Add new lm to array
 
     # covariance
     dx = r * c
