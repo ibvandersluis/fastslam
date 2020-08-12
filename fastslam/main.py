@@ -29,11 +29,12 @@ from gazebo_msgs.msg import LinkStates
 
 shortcuts.hint()
 
-def observation_model(particles, u):
+def observation_model(particles, x, u):
     """
-    Estimates the expected relative locations of the landmarks
+    Compute predictions for relative location of landmarks
 
     :param particles: An array of particles
+    :param x: The state vector
     :param u: The input vector velocity and yaw
     """
 
@@ -206,7 +207,7 @@ def observation(xTrue, xd, u, data):
     Record an observation
 
     :param xTrue: The true state
-    :param xd: 
+    :param xd: The state expectation
     :param u: Velocity and Yaw
     :param data: The landmarks seen by the camera
     :return:
@@ -320,8 +321,7 @@ def compute_jacobians(particle, xf, Pf, Q_cov):
     d2 = dx ** 2 + dy ** 2
     d = math.sqrt(d2)
 
-    zp = np.array(
-        [d, pi_2_pi(math.atan2(dy, dx) - particle.yaw)]).reshape(2, 1)
+    zp = np.array([d, pi_2_pi(math.atan2(dy, dx) - particle.yaw)]).reshape(2, 1)
 
     Hv = np.array([[-dx / d, -dy / d, 0.0],
                    [dy / d2, -dx / d2, -1.0]])
@@ -336,7 +336,7 @@ def compute_jacobians(particle, xf, Pf, Q_cov):
 
 def add_new_landmark(particle, z, Q_cov):
     """
-    Adds a new landmark to [a particle?]
+    Adds a new landmark to a particle
 
     :param particle: A particle
     :param z: An observation
@@ -621,6 +621,7 @@ class Listener(BaseListener):
         plt.pause(0.001)
 
     def control_callback(self, msg: Twist):
+        print(msg)
         self.v = msg.linear.x
         self.yaw = msg.angular.z
         self.u = np.array([self.v, self.yaw]).reshape(2, 1)
