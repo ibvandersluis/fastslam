@@ -594,10 +594,10 @@ class Listener(BaseListener):
             pnum = 0
             for particle in self.particles:
                 pnum += 1
-                f.write('Particle #' + str(pnum) + ':\n')
-                for i in range(len(particle.lm[0, :])):
+                f.write('--- Particle #' + str(pnum) + ':\n')
+                for i in range(len(particle.lm[:, 0])):
                     f.write('lm #' + str(i) + '-- x: ' + str(particle.lm[i, 0])
-                            + ', y: ' + str(particle.lm[i, 1]))
+                            + ', y: ' + str(particle.lm[i, 1] + '\n'))
             f.close()
             self.count = 0
 
