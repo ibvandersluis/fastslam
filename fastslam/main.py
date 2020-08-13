@@ -644,7 +644,16 @@ class Listener(BaseListener):
             yaw = self.xEst[2, 0] # Orientation
             d = self.z[0, i] # Distance from vehicle
             theta = self.z[1, i] # Angle of observation
-            plt.plot(x + d * math.cos(pi_2_pi(theta + yaw)), y + d * math.sin(pi_2_pi(theta + yaw)), "*k")
+
+            angle = pi_2_pi(theta + yaw)
+
+            tx = d * math.cos(angle)
+            ty = d * math.sin(angle)
+
+            dx = x + math.cos(angle) * tx - math.sin(angle) * ty
+            dy = y + math.sin(angle) * tx + math.cos(angle) * ty
+            plt.plot(dx, dy, *k)
+            # plt.plot(x + d * math.cos(pi_2_pi(theta + yaw)), y + d * math.sin(pi_2_pi(theta + yaw)), "*k")
 
         for i in range(N_PARTICLE):
             # Plot location estimates as red dots
