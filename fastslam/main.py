@@ -277,8 +277,8 @@ def update_with_observation(particles, z):
         for ip in range(N_PARTICLE):
             # Add new landmark if likelihood is less than 1%
             try:
-                # if particles[ip].lm[landmark_id, 2]) <= 0.01:
-                if abs(particles[ip].lm[landmark_id, 0]) <= 0.01:
+                if (particles[ip].lm[landmark_id, 2]) <= 0.01:
+                # if abs(particles[ip].lm[landmark_id, 0]) <= 0.01:
                     particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
                 # Else update the known landmark
                 else:
