@@ -40,6 +40,8 @@ def observation_model(particles, x, u, z):
     :return:
     """
 
+    # using motion model determine dx, dy, dTheta
+
     pnum = 0
     for particle in particles:
         pnum += 1
@@ -54,6 +56,10 @@ def observation_model(particles, x, u, z):
             
             dz = z[i, 0:2].reshape(2, 1) - zp
             dz[1, 0] = pi_2_pi(dz[1, 0])
+
+            # make gaussian around most likely location
+            # size: start with arbitrary assumption
+            # Update size of gaussian at each time step
 
 
 
@@ -384,6 +390,7 @@ def add_new_landmark(particle, z, Q_cov):
                    [-dy / d2, dx / d2]])
     # particle.lmP[2 * lm_id:2 * lm_id + 2] = np.linalg.inv(Gz) @ Q_cov @ np.linalg.inv(Gz.T)
     particle.lmP = np.vstack((particle.lmP, np.linalg.inv(Gz) @ Q_cov @ np.linalg.inv(Gz.T)))
+    # Resize covariance to accommodate new lm
 
     return particle
 

@@ -25,6 +25,7 @@ If you are interested in learning more about SLAM, here are some of the resource
 #### Videos
 - [**_Particle Filter Explained Without Equations_**](https://www.youtube.com/watch?v=aUkBa1zMKv4&t=5s)
 - [**_Particle Filters Explained_**](https://www.youtube.com/watch?v=sz7cJuMgKFg)
+- [**_Autonomous Navigation, Part 2: Understanding the Particle Filter_**](https://www.youtube.com/watch?v=NrzmH_yerBU)
 
 ## Installation
 
