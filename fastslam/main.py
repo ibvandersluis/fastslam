@@ -373,7 +373,7 @@ def add_new_landmark(particle, z, Q_cov):
 
     # particle.lm[lm_id, 0] = particle.x + r * c
     # particle.lm[lm_id, 1] = particle.y + r * s
-    particle.lm = np.vstack(particle.lm, [[particle.x + r * c, particle.y + r * s, 1.0]]) # Add new lm to array
+    particle.lm = np.vstack((particle.lm, [particle.x + r * c, particle.y + r * s, 1.0])) # Add new lm to array
 
     # covariance
     dx = r * c
@@ -383,7 +383,7 @@ def add_new_landmark(particle, z, Q_cov):
     Gz = np.array([[dx / d, dy / d],
                    [-dy / d2, dx / d2]])
     # particle.lmP[2 * lm_id:2 * lm_id + 2] = np.linalg.inv(Gz) @ Q_cov @ np.linalg.inv(Gz.T)
-    particle.lmP = np.vstack(particle.lmP, np.linalg.inv(Gz) @ Q_cov @ np.linalg.inv(Gz.T))
+    particle.lmP = np.vstack((particle.lmP, np.linalg.inv(Gz) @ Q_cov @ np.linalg.inv(Gz.T)))
 
     return particle
 
