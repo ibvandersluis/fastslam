@@ -652,7 +652,7 @@ class Listener(BaseListener):
 
             dx = x + math.cos(angle) * tx - math.sin(angle) * ty
             dy = y + math.sin(angle) * tx + math.cos(angle) * ty
-            plt.plot(dx, dy, *k)
+            plt.plot(dx, dy, "*k")
             # plt.plot(x + d * math.cos(pi_2_pi(theta + yaw)), y + d * math.sin(pi_2_pi(theta + yaw)), "*k")
 
         for i in range(N_PARTICLE):
