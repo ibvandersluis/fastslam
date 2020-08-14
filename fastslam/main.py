@@ -573,6 +573,10 @@ class Listener(BaseListener):
         self.debug = 0
 
 
+        # Set publishers
+        self.map_pub = self.create_publisher(ConeArray, '/mapping/map', 10)
+        self.pose_pub = self.create_publisher(CarPos, '/mapping/position', 10)
+        self.cmd_pub = self.create_publisher(Twist, '/gazebo/cmd_vel', 10)
 
         # Set subscribers
         self.cones_sub = self.create_subscription(ConeArray, '/cones/positions', self.cones_callback, 10)
@@ -586,10 +590,7 @@ class Listener(BaseListener):
 
         # ros2 topic pub /gazebo/cmd_vel geometry_msgs/Twist '{linear: {x: 1.0}, angular: {z: 0.1}}' 
 
-        # Set publishers
-        self.map_pub = self.create_publisher(ConeArray, '/mapping/map', 10)
-        self.pose_pub = self.create_publisher(CarPos, '/mapping/position', 10)
-        self.cmd_pub = self.create_publisher(Twist, '/gazebo/cmd_vel', 10)
+        self.create_timer(1.0, self.timer_callback)
 
         # multiple subscribers - not finished
         # cones_sub = message_filters.Subscriber(self, type, '/cones/positions')
@@ -650,7 +651,7 @@ class Listener(BaseListener):
         self.hxEst = np.hstack((self.hxEst, self.x_state))
         self.hxDR = np.hstack((self.hxDR, self.xDR))
         self.hxTrue = np.hstack((self.hxTrue, self.xTrue))
-
+        """
         # Plot graph
         plt.cla()
         # for stopping simulation with the esc key.
@@ -676,6 +677,7 @@ class Listener(BaseListener):
             dx = x + math.cos(angle) * tx - math.sin(angle) * ty
             dy = y + math.sin(angle) * tx + math.cos(angle) * ty
             plt.plot(x + tx, y + ty, "*k")
+            # plt.plot(dx, dy, "*k")
             # plt.plot(x + d * math.cos(pi_2_pi(theta + yaw)), y + d * math.sin(pi_2_pi(theta + yaw)), "*k")
 
         point_angle_line(self.xEst[0, 0], self.xEst[1, 0], self.xEst[2, 0])
@@ -693,6 +695,7 @@ class Listener(BaseListener):
         plt.axis("equal")
         plt.grid(True)
         plt.pause(0.001)
+        """
 
     def control_callback(self, msg: Twist):
         str(msg) # For some reason this is needed to access msg.linear.x
@@ -726,6 +729,50 @@ class Listener(BaseListener):
                 continue
             cones.append(Cone(position=pose.position, label=Label(label=label)))
 
+    def timer_callback(self):
+        # Plot graph
+        plt.cla()
+        # for stopping simulation with the esc key.
+        plt.gcf().canvas.mpl_connect(
+            'key_release_event', lambda event:
+            [exit(0) if event.key == 'escape' else None])
+        # Plot landmarks as black stars relative to xEst
+        # plt.plot(self.capture[:, 0] + self.xEst[0, 0], self.capture[:, 1] + self.xEst[1, 0], "*k")
+        
+        # Convert z observations to absolute positions and plot
+        for i in range(len(self.z[0, :])):
+            x = self.xEst[0, 0] # X pos
+            y = self.xEst[1, 0] # Y pos
+            yaw = self.xEst[2, 0] # Orientation
+            d = self.z[0, i] # Distance from vehicle
+            theta = self.z[1, i] # Angle of observation
+
+            angle = (theta + yaw - math.pi/2)
+
+            tx = d * math.cos(angle)
+            ty = d * math.sin(angle)
+
+            dx = x + math.cos(angle) * tx - math.sin(angle) * ty
+            dy = y + math.sin(angle) * tx + math.cos(angle) * ty
+            plt.plot(x + tx, y + ty, "*k")
+            # plt.plot(dx, dy, "*k")
+            # plt.plot(x + d * math.cos(pi_2_pi(theta + yaw)), y + d * math.sin(pi_2_pi(theta + yaw)), "*k")
+
+        point_angle_line(self.xEst[0, 0], self.xEst[1, 0], self.xEst[2, 0])
+
+        for i in range(N_PARTICLE):
+            # Plot location estimates as red dots
+            plt.plot(self.particles[i].x, self.particles[i].y, ".r")
+            # Plot landmark estimates as blue X's
+            # plt.plot(self.particles[i].lm[:, 0], self.particles[i].lm[:, 1], "xb")
+
+        plt.plot(self.hxTrue[0, :], self.hxTrue[1, :], "-b") # Plot xTrue with solid blue line
+        plt.plot(self.hxDR[0, :], self.hxDR[1, :], "-k") # Plot dead reckoning with solid black line
+        plt.plot(self.hxEst[0, :], self.hxEst[1, :], "-r") # Plot xEst with solid red line
+        plt.plot(self.xEst[0], self.xEst[1], "xk") # Plot current xEst as black x
+        plt.axis("equal")
+        plt.grid(True)
+        plt.pause(0.001)
 
 
     # def wss_callback(self):
