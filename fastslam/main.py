@@ -29,6 +29,39 @@ from gazebo_msgs.msg import LinkStates
 
 shortcuts.hint()
 
+# Fast SLAM covariance
+Q = np.diag([3.0, np.deg2rad(10.0)]) ** 2 # Covariance matrix of process noise
+R = np.diag([1.0, np.deg2rad(20.0)]) ** 2 # Covariance matrix of observation noise at time t
+
+#  Simulation parameter
+Q_sim = np.diag([0.3, np.deg2rad(2.0)]) ** 2
+R_sim = np.diag([0.5, np.deg2rad(10.0)]) ** 2
+OFFSET_YAW_RATE_NOISE = 0.01
+
+DT = 0.2  # time tick [s]
+M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
+STATE_SIZE = 3  # State size [x, y, yaw]
+LM_SIZE = 3  # LM state size [x, y, probability]
+N_PARTICLE = 100  # number of particle
+NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
+PARTICLE_ITERATION = 0 # n for the nth particle production
+
+def point_angle_line(x, y, theta):
+    """
+    Plot a line from slope and intercept
+
+    :param rads: The angle of the line in radians
+    :param x: The x value of the point
+    :point y: The y value of the point
+    :return: Nothing
+    """
+    slope = math.tan(theta)
+    intercept = y - slope * x
+    axes = plt.gca()
+    x_vals = np.array(axes.get_xlim())
+    y_vals = intercept + slope * x_vals
+    plt.plot(x_vals, y_vals, '--')
+
 def observation_model(particles, x, u, z):
     """
     Compute predictions for relative location of landmarks
@@ -82,22 +115,6 @@ def observation_model(particles, x, u, z):
 
 # STEP 1: PREDICT
 
-# Fast SLAM covariance
-Q = np.diag([3.0, np.deg2rad(10.0)]) ** 2 # Covariance matrix of process noise
-R = np.diag([1.0, np.deg2rad(20.0)]) ** 2 # Covariance matrix of observation noise at time t
-
-#  Simulation parameter
-Q_sim = np.diag([0.3, np.deg2rad(2.0)]) ** 2
-R_sim = np.diag([0.5, np.deg2rad(10.0)]) ** 2
-OFFSET_YAW_RATE_NOISE = 0.01
-
-DT = 0.2  # time tick [s]
-M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
-STATE_SIZE = 3  # State size [x, y, yaw]
-LM_SIZE = 3  # LM state size [x, y, probability]
-N_PARTICLE = 100  # number of particle
-NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
-PARTICLE_ITERATION = 0 # n for the nth particle production
 
 class Particle:
 
@@ -549,7 +566,6 @@ class Listener(BaseListener):
         # Generate initial particles
         self.particles = [Particle(self.n_landmark) for _ in range(N_PARTICLE)]
 
-
         self.u = np.array([self.v, self.yaw]).reshape(2, 1)
         self.ud = None
         self.z = None
@@ -661,6 +677,8 @@ class Listener(BaseListener):
             dy = y + math.sin(angle) * tx + math.cos(angle) * ty
             plt.plot(dx, dy, "*k")
             # plt.plot(x + d * math.cos(pi_2_pi(theta + yaw)), y + d * math.sin(pi_2_pi(theta + yaw)), "*k")
+
+        point_angle_line(self.xEst[0, 0], self.xEst[1, 0], self.xEst[2, 0])
 
         for i in range(N_PARTICLE):
             # Plot location estimates as red dots
