@@ -718,7 +718,7 @@ class Listener(BaseListener):
             # Plot location estimates as red dots
             plt.plot(self.particles[i].x, self.particles[i].y, ".r")
             # Plot landmark estimates as blue X's
-            # plt.plot(self.particles[i].lm[:, 0], self.particles[i].lm[:, 1], "xb")
+            plt.plot(self.particles[i].lm[:, 0], self.particles[i].lm[:, 1], "xb")
 
         plt.plot(self.hxTrue[0, :], self.hxTrue[1, :], "-b") # Plot xTrue with solid blue line
         plt.plot(self.hxDR[0, :], self.hxDR[1, :], "-k") # Plot dead reckoning with solid black line
