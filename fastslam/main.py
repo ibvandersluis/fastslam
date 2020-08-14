@@ -668,14 +668,14 @@ class Listener(BaseListener):
             d = self.z[0, i] # Distance from vehicle
             theta = self.z[1, i] # Angle of observation
 
-            angle = pi_2_pi(theta + yaw)
+            angle = (theta + yaw - math.pi/2)
 
             tx = d * math.cos(angle)
             ty = d * math.sin(angle)
 
             dx = x + math.cos(angle) * tx - math.sin(angle) * ty
             dy = y + math.sin(angle) * tx + math.cos(angle) * ty
-            plt.plot(dx, dy, "*k")
+            plt.plot(x + tx, y + ty, "*k")
             # plt.plot(x + d * math.cos(pi_2_pi(theta + yaw)), y + d * math.sin(pi_2_pi(theta + yaw)), "*k")
 
         point_angle_line(self.xEst[0, 0], self.xEst[1, 0], self.xEst[2, 0])
@@ -684,7 +684,7 @@ class Listener(BaseListener):
             # Plot location estimates as red dots
             plt.plot(self.particles[i].x, self.particles[i].y, ".r")
             # Plot landmark estimates as blue X's
-            plt.plot(self.particles[i].lm[:, 0], self.particles[i].lm[:, 1], "xb")
+            # plt.plot(self.particles[i].lm[:, 0], self.particles[i].lm[:, 1], "xb")
 
         plt.plot(self.hxTrue[0, :], self.hxTrue[1, :], "-b") # Plot xTrue with solid blue line
         plt.plot(self.hxDR[0, :], self.hxDR[1, :], "-k") # Plot dead reckoning with solid black line
