@@ -73,29 +73,62 @@ def observation_model(particles, x, u, z):
     :return:
     """
 
+    landmarks = np.zeros([range(len(particles[0].lm)), 2]) # For landmark x-y positions
+
     # using motion model determine dx, dy, dTheta
 
-    pnum = 0
-    for particle in particles:
-        pnum += 1
-        for i in range(len(particle.lm[0, :])):
-            xf = np.array(particle.lm[i, :]).reshape(3, 1)
-            dx = xf[0, 0] - particle.x
-            dy = xf[1, 0] - particle.y
-            d2 = dx ** 2 + dy ** 2
-            d = math.sqrt(d2)
+    # pnum = 0
+    # for particle in particles:
+    #     pnum += 1
+    #     for i in range(len(particle.lm[:, 0])):
+    #         xf = np.array(particle.lm[i, 0:2]).reshape(2, 1)
+    #         dx = xf[0, 0] - particle.x
+    #         dy = xf[1, 0] - particle.y
+    #         d2 = dx ** 2 + dy ** 2
+    #         d = math.sqrt(d2)
 
-            zp = np.array([d, pi_2_pi(math.atan2(dy, dx) - particle.yaw)]).reshape(2, 1)
+    #         zp = np.array([d, pi_2_pi(math.atan2(dy, dx) - particle.yaw)]).reshape(2, 1)
             
-            dz = z[i, 0:2].reshape(2, 1) - zp
-            dz[1, 0] = pi_2_pi(dz[1, 0])
+    #         dz = z[i, 0:2].reshape(2, 1) - zp
+    #         dz[1, 0] = pi_2_pi(dz[1, 0])
 
             # make gaussian around most likely location
             # size: start with arbitrary assumption
             # Update size of gaussian at each time step
 
+    # Get Gaussian around landmark
+        # ???
 
+    # Find center of Gaussian
+    for i in range(len(particles[0].lm[0, :])):
+        for j in range(N_PARTICLE):
+            landmarks[i, 0] += particles[j].lm[i, 0] * particles[j].w
+            landmarks[i, 1] += particles[j].lm[i, 1] * particles[j].w
 
+    # Convert to relative observations
+    for lm in range(len(landmarks[: , 0])):
+        dx = landmarks[lm, 0] - x[0, 0]
+        dy = landmarks[lm, 1] - x[1, 0]
+        d = math.hypot(dx, dy)
+        angle = pi_2_pi(math.atan2(dy, dx) - x[2, 0])
+        landmarks[lm, 0] = d * math.cos(angle)
+        landmarks[lm, 1] = d * math.sin(angle)
+
+    # Get dx, dy, dtheta from motion model
+    x1 = x # Last pose
+    x2 = motion_model(x, u) # Predicted pose
+    delta = x2 - x1 # dx = delta[0, 0], dy = delta[1, 0], dtheta = delta[2, 0]
+
+    # Get expected locations from motion model
+    for lm in range(len(landmarks[: , 0])):
+        x = landmarks[lm, 0] - delta[0, 0]
+        y = landmarks[lm, 1] - delta[1, 0]
+        d = math.hypot(x, y)
+        dtheta = delta[2, 0]
+        landmarks[lm, 0] = d * math.cos(dtheta)
+        landmarks[lm, 1] = d * math.sin(dtheta)
+
+    return landmarks
 
 # --- CODE FROM PYTHON ROBOTICS / ATSUSHI SAKAI ---
 
@@ -212,7 +245,7 @@ def predict_particles(particles, u):
     Predict x, y, yaw values for new particles
 
     :param particles: An array of particles
-    :param u: An input vector [Vt, Wt] where Vt = velocity and Wt = 
+    :param u: An input vector [Vt, Wt], the linear and angular velocities
     :return: Returns predictions as particles
     """
     print('PREDICTING PARTICLES')
@@ -247,7 +280,7 @@ def observation(xTrue, xd, u, data):
 
     :param xTrue: The true state
     :param xd: The state expectation
-    :param u: Velocity and Yaw
+    :param u: Linear and angular velocity
     :param data: The landmarks seen by the camera
     :return:
         xTrue - the true state
@@ -323,7 +356,7 @@ def compute_weight(particle, z, Q_cov):
     :return: Returns particle weight
     """
     lm_id = int(z[2]) # Get landmark id from z
-    xf = np.array(particle.lm[lm_id, :]).reshape(3, 1) # The state of a landmark from a particle
+    xf = np.array(particle.lm[lm_id, 0:2]).reshape(3, 1) # The state of a landmark from a particle
     Pf = np.array(particle.lmP[2 * lm_id:2 * lm_id + 2]) # ??
     zp, Hv, Hf, Sf = compute_jacobians(particle, xf, Pf, Q_cov)
 
@@ -706,11 +739,7 @@ class Listener(BaseListener):
             tx = d * math.cos(angle)
             ty = d * math.sin(angle)
 
-            dx = x + math.cos(angle) * tx - math.sin(angle) * ty
-            dy = y + math.sin(angle) * tx + math.cos(angle) * ty
             plt.plot(x + tx, y + ty, "*k")
-            # plt.plot(dx, dy, "*k")
-            # plt.plot(x + d * math.cos(pi_2_pi(theta + yaw)), y + d * math.sin(pi_2_pi(theta + yaw)), "*k")
 
         point_angle_line(self.xEst[0, 0], self.xEst[1, 0], self.xEst[2, 0])
 
