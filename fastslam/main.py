@@ -17,6 +17,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 import time
+import scipy.stats
 from copy import deepcopy
 from helpers.listener import BaseListener
 from helpers import shortcuts
@@ -331,8 +332,8 @@ def update_with_observation(particles, z):
         landmark_id = int(z[2, iz]) # Get landmark id
 
         for ip in range(N_PARTICLE):
-            # Add new landmark if likelihood is less than 1%
-            try:
+            if (landmark_id < len(particles[ip].lm[: , 0])): # If there are
+                # Add new landmark if likelihood is less than 1%
                 if (particles[ip].lm[landmark_id, 2]) <= 0.01:
                 # if abs(particles[ip].lm[landmark_id, 0]) <= 0.01:
                     particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
@@ -341,7 +342,7 @@ def update_with_observation(particles, z):
                     w = compute_weight(particles[ip], z[:, iz], Q)
                     particles[ip].w *= w
                     particles[ip] = update_landmark(particles[ip], z[:, iz], Q)
-            except:
+            else:
                 particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
 
     return particles
@@ -356,7 +357,7 @@ def compute_weight(particle, z, Q_cov):
     :return: Returns particle weight
     """
     lm_id = int(z[2]) # Get landmark id from z
-    xf = np.array(particle.lm[lm_id, 0:2]).reshape(3, 1) # The state of a landmark from a particle
+    xf = np.array(particle.lm[lm_id, 0:2]).reshape(2, 1) # The state of a landmark from a particle
     Pf = np.array(particle.lmP[2 * lm_id:2 * lm_id + 2]) # ??
     zp, Hv, Hf, Sf = compute_jacobians(particle, xf, Pf, Q_cov)
 
@@ -482,7 +483,7 @@ def update_landmark(particle, z, Q_cov):
     """
 
     lm_id = int(z[2])
-    xf = np.array(particle.lm[lm_id, :]).reshape(3, 1)
+    xf = np.array(particle.lm[lm_id, 0:2]).reshape(2, 1)
     Pf = np.array(particle.lmP[2 * lm_id:2 * lm_id + 2, :])
 
     zp, Hv, Hf, Sf = compute_jacobians(particle, xf, Pf, Q)
@@ -492,7 +493,7 @@ def update_landmark(particle, z, Q_cov):
 
     xf, Pf = update_kf_with_cholesky(xf, Pf, dz, Q_cov, Hf)
 
-    particle.lm[lm_id, :] = xf.T
+    particle.lm[lm_id, 0:2] = xf.T
     particle.lmP[2 * lm_id:2 * lm_id + 2, :] = Pf
 
     return particle
