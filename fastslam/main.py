@@ -141,7 +141,7 @@ def law_of_cos(a, b, theta):
     :param theta: The measure of the angle in radians between the two sides
     :return: c, the length of the third side
     """
-    c_sq = a ** 2 + b ** 2 - 2 * a * b * math.cos(theta)
+    c_sq = a**2 + b**2 - 2*a*b * math.cos(theta)
     c = math.sqrt(c_sq)
 
     return c
@@ -353,10 +353,19 @@ def update_with_observation(particles, z):
         # For each particle
         for ip in range(N_PARTICLE):
             # For each landmark
+            match = False
             for lm in range(len(particles[ip].lm[: , 0])):
                 # norm = scipy.stats.norm(loc=0.0, scale=1.0)
                 d = law_of_cos(z[0, iz], particles[ip].lm[lm, 2], z[1, iz] - particles[ip].lm[lm, 3])
                 p = norm.pdf(d)
+                if (p > threshold):
+                    w = compute_weight(particles[ip], z[:, iz], Q)
+                    particles[ip].w *= w
+                    particles[ip] = update_landmark(particles[ip], z[:, iz], Q)
+                    match = True
+                    break
+            if (match == False):
+                particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
 
 
 
