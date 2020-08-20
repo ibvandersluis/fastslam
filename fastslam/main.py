@@ -131,6 +131,21 @@ def observation_model(particle):
 
     return particle
 
+def law_of_cos(a, b, theta):
+    """
+    Returns the length of the side of a triangle opposite a corner,
+    given that corner's angle and the lengths of the adjacent sides.
+
+    :param a: The length of the first side of the triangle
+    :param b: The length of the second side of the triangle
+    :param theta: The measure of the angle in radians between the two sides
+    :return: c, the length of the third side
+    """
+    c_sq = a ** 2 + b ** 2 - 2 * a * b * math.cos(theta)
+    c = math.sqrt(c_sq)
+
+    return c
+
 # --- CODE FROM PYTHON ROBOTICS / ATSUSHI SAKAI ---
 
 # Code mostly by Atsushi Sakai
@@ -328,7 +343,24 @@ def update_with_observation(particles, z):
     """
     print('UPDATING WITH OBSERVATION')
 
+    threshold = 0.01
+    norm = scipy.stats.norm(loc=0.0, scale=1.0)
+
+    # Get standard deviation for each landmark
+
     # For each landmark in the observation
+    for iz in range(len(z[0, :])):
+        # For each particle
+        for ip in range(N_PARTICLE):
+            # For each landmark
+            for lm in range(len(particles[ip].lm[: , 0])):
+                # norm = scipy.stats.norm(loc=0.0, scale=1.0)
+                d = law_of_cos(z[0, iz], particles[ip].lm[lm, 2], z[1, iz] - particles[ip].lm[lm, 3])
+                p = norm.pdf(d)
+
+
+
+    """
     for iz in range(len(z[0, :])):
 
         landmark_id = int(z[2, iz]) # Get landmark id
@@ -346,6 +378,7 @@ def update_with_observation(particles, z):
                     particles[ip] = update_landmark(particles[ip], z[:, iz], Q)
             else:
                 particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
+    """
 
     return particles
 
