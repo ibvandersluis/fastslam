@@ -43,7 +43,7 @@ DT = 0.2  # time tick [s]
 M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
 STATE_SIZE = 3  # State size [x, y, yaw]
 LM_SIZE = 4  # LM state size [x, y, distance, angle]
-N_PARTICLE = 100  # number of particle
+N_PARTICLE = 10  # number of particle
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 PARTICLE_ITERATION = 0 # n for the nth particle production
 
@@ -344,7 +344,10 @@ def update_with_observation(particles, z):
     print('UPDATING WITH OBSERVATION')
 
     threshold = 0.01
-    norm = scipy.stats.norm(loc=0.0, scale=1.0)
+    norm = scipy.stats.norm(loc=0.0, scale=1.5)
+    d = 0.0
+    p = 0.0
+    print(particles[0].lmP)
 
     # Get standard deviation for each landmark
 
@@ -352,22 +355,26 @@ def update_with_observation(particles, z):
     for iz in range(len(z[0, :])):
         # For each particle
         for ip in range(N_PARTICLE):
-            # For each landmark
+            a = time.time()
             match = False
+            # For each landmark
             for lm in range(len(particles[ip].lm[: , 0])):
                 # norm = scipy.stats.norm(loc=0.0, scale=1.0)
                 d = law_of_cos(z[0, iz], particles[ip].lm[lm, 2], z[1, iz] - particles[ip].lm[lm, 3])
                 p = norm.pdf(d)
                 if (p > threshold):
-                    w = compute_weight(particles[ip], z[:, iz], Q)
+                    print('UPDATING LANDMARK')
+                    print('d: ' + str(d) + ', p: ' + str(p))
+                    w = compute_weight(particles[ip], z[:, iz], Q, lm)
                     particles[ip].w *= w
-                    particles[ip] = update_landmark(particles[ip], z[:, iz], Q)
+                    particles[ip] = update_landmark(particles[ip], z[:, iz], Q, lm)
                     match = True
                     break
             if (match == False):
+                print('ADDING LANDMARK')
                 particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
-
-
+            b = time.time()
+            print('Particle ' + str(ip) + ' completed in ' + str(b-a) + ' seconds')
 
     """
     for iz in range(len(z[0, :])):
@@ -391,7 +398,7 @@ def update_with_observation(particles, z):
 
     return particles
 
-def compute_weight(particle, z, Q_cov):
+def compute_weight(particle, z, Q_cov, lm_id):
     """
     Compute weight of particles
 
@@ -400,9 +407,9 @@ def compute_weight(particle, z, Q_cov):
     :param Q_cov: The measurement covariance
     :return: Returns particle weight
     """
-    lm_id = int(z[2]) # Get landmark id from z
+    # lm_id = int(z[2]) # Get landmark id from z
     xf = np.array(particle.lm[lm_id, 0:2]).reshape(2, 1) # The state of a landmark from a particle
-    Pf = np.array(particle.lmP[2 * lm_id:2 * lm_id + 2]) # ??
+    Pf = np.array(particle.lmP[2 * lm_id:2 * lm_id + 2]) # Matrix is 2x2
     zp, Hv, Hf, Sf = compute_jacobians(particle, xf, Pf, Q_cov)
 
     dx = z[0:2].reshape(2, 1) - zp
@@ -516,7 +523,7 @@ def update_kf_with_cholesky(xf, Pf, v, Q_cov, Hf):
 
     return x, P
 
-def update_landmark(particle, z, Q_cov):
+def update_landmark(particle, z, Q_cov, lm_id):
     """
     Update a landmark
 
@@ -526,9 +533,9 @@ def update_landmark(particle, z, Q_cov):
     :return: A particle
     """
 
-    lm_id = int(z[2])
+    # lm_id = int(z[2])
     xf = np.array(particle.lm[lm_id, 0:2]).reshape(2, 1)
-    Pf = np.array(particle.lmP[2 * lm_id:2 * lm_id + 2, :])
+    Pf = np.array(particle.lmP[2 * lm_id:2 * lm_id + 2, :]) # All columns from this set of 2 rows
 
     zp, Hv, Hf, Sf = compute_jacobians(particle, xf, Pf, Q)
 
@@ -538,7 +545,7 @@ def update_landmark(particle, z, Q_cov):
     xf, Pf = update_kf_with_cholesky(xf, Pf, dz, Q_cov, Hf)
 
     particle.lm[lm_id, 0:2] = xf.T
-    particle.lmP[2 * lm_id:2 * lm_id + 2, :] = Pf
+    particle.lmP[2 * lm_id:2 * lm_id + 2, :] = Pf # Reassign new covariance matrix
 
     return particle
 
@@ -588,7 +595,7 @@ def resampling(particles):
     # print(n_eff)
 
     if n_eff < NTH:  # resampling
-        w_cum = np.cumsum(pw)
+        w_cum = np.cumsum(pw) # Cumulative weight is the sum of all particle weights
         base = np.cumsum(pw * 0.0 + 1 / N_PARTICLE) - 1 / N_PARTICLE
         resample_id = base + np.random.rand(base.shape[0]) / N_PARTICLE
 
@@ -786,7 +793,7 @@ class Listener(BaseListener):
 
             plt.plot(x + tx, y + ty, "*k")
 
-        point_angle_line(self.xEst[0, 0], self.xEst[1, 0], self.xEst[2, 0])
+        # point_angle_line(self.xEst[0, 0], self.xEst[1, 0], self.xEst[2, 0])
 
         for i in range(N_PARTICLE):
             # Plot location estimates as red dots
