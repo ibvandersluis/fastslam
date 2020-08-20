@@ -42,7 +42,7 @@ OFFSET_YAW_RATE_NOISE = 0.01
 DT = 0.2  # time tick [s]
 M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
 STATE_SIZE = 3  # State size [x, y, yaw]
-LM_SIZE = 3  # LM state size [x, y, probability]
+LM_SIZE = 4  # LM state size [x, y, distance, angle]
 N_PARTICLE = 100  # number of particle
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 PARTICLE_ITERATION = 0 # n for the nth particle production
@@ -63,73 +63,73 @@ def point_angle_line(x, y, theta):
     y_vals = intercept + slope * x_vals
     plt.plot(x_vals, y_vals, '--')
 
-def observation_model(particles, x, u, z):
+def observation_model(particle):
     """
     Compute predictions for relative location of landmarks
 
-    :param particles: An array of particles
-    :param x: The state vector
-    :param u: The input vector: velocity and yaw
-    :param z: The observations
+    :param particle: A particle
     :return:
+        - d: the expected distance to the landmark
+        - theta: the expected angle of observation
     """
 
-    landmarks = np.zeros([range(len(particles[0].lm)), 2]) # For landmark x-y positions
+    # landmarks = np.zeros([range(len(particle.lm)), 2]) # For landmark x-y positions
 
     # using motion model determine dx, dy, dTheta
 
-    # pnum = 0
-    # for particle in particles:
-    #     pnum += 1
-    #     for i in range(len(particle.lm[:, 0])):
-    #         xf = np.array(particle.lm[i, 0:2]).reshape(2, 1)
-    #         dx = xf[0, 0] - particle.x
-    #         dy = xf[1, 0] - particle.y
-    #         d2 = dx ** 2 + dy ** 2
-    #         d = math.sqrt(d2)
+    for i in range(len(particle.lm[:, 0])):
+        xf = np.array(particle.lm[i, 0:2]).reshape(2, 1)
+        dx = xf[0, 0] - particle.x
+        dy = xf[1, 0] - particle.y
+        d2 = dx ** 2 + dy ** 2
+        d = math.sqrt(d2)
+        theta = pi_2_pi(math.atan2(dy, dx) - particle.yaw)
 
-    #         zp = np.array([d, pi_2_pi(math.atan2(dy, dx) - particle.yaw)]).reshape(2, 1)
-            
-    #         dz = z[i, 0:2].reshape(2, 1) - zp
-    #         dz[1, 0] = pi_2_pi(dz[1, 0])
+        particle.lm[i, 2] = d # Assign expected distance
+        particle.lm[i, 3] = theta
 
-            # make gaussian around most likely location
-            # size: start with arbitrary assumption
-            # Update size of gaussian at each time step
+        # zp = np.array([d, pi_2_pi(math.atan2(dy, dx) - particle.yaw)]).reshape(2, 1)
+        
+        # dz = z[i, 0:2].reshape(2, 1) - zp
+        # dz[1, 0] = pi_2_pi(dz[1, 0])
+
+        # make gaussian around most likely location
+        # size: start with arbitrary assumption
+        # Update size of gaussian at each time step
 
     # Get Gaussian around landmark
         # ???
 
-    # Find center of Gaussian
-    for i in range(len(particles[0].lm[0, :])):
-        for j in range(N_PARTICLE):
-            landmarks[i, 0] += particles[j].lm[i, 0] * particles[j].w
-            landmarks[i, 1] += particles[j].lm[i, 1] * particles[j].w
+    # # Find center of Gaussian
+    # for i in range(len(particles[0].lm[0, :])):
+    #     for j in range(N_PARTICLE):
+    #         landmarks[i, 0] += particles[j].lm[i, 0] * particles[j].w
+    #         landmarks[i, 1] += particles[j].lm[i, 1] * particles[j].w
 
-    # Convert to relative observations
-    for lm in range(len(landmarks[: , 0])):
-        dx = landmarks[lm, 0] - x[0, 0]
-        dy = landmarks[lm, 1] - x[1, 0]
-        d = math.hypot(dx, dy)
-        angle = pi_2_pi(math.atan2(dy, dx) - x[2, 0])
-        landmarks[lm, 0] = d * math.cos(angle)
-        landmarks[lm, 1] = d * math.sin(angle)
+    # # Convert to relative observations
+    # for lm in range(len(landmarks[: , 0])):
+    #     dx = landmarks[lm, 0] - x[0, 0]
+    #     dy = landmarks[lm, 1] - x[1, 0]
+    #     d = math.hypot(dx, dy)
+    #     angle = pi_2_pi(math.atan2(dy, dx) - x[2, 0])
+    #     landmarks[lm, 0] = d * math.cos(angle)
+    #     landmarks[lm, 1] = d * math.sin(angle)
 
-    # Get dx, dy, dtheta from motion model
-    x1 = x # Last pose
-    x2 = motion_model(x, u) # Predicted pose
-    delta = x2 - x1 # dx = delta[0, 0], dy = delta[1, 0], dtheta = delta[2, 0]
+    # # Get dx, dy, dtheta from motion model
+    # x1 = x # Last pose
+    # x2 = motion_model(x, u) # Predicted pose
+    # delta = x2 - x1 # dx = delta[0, 0], dy = delta[1, 0], dtheta = delta[2, 0]
 
-    # Get expected locations from motion model
-    for lm in range(len(landmarks[: , 0])):
-        x = landmarks[lm, 0] - delta[0, 0]
-        y = landmarks[lm, 1] - delta[1, 0]
-        d = math.hypot(x, y)
-        dtheta = delta[2, 0]
-        landmarks[lm, 0] = d * math.cos(dtheta)
-        landmarks[lm, 1] = d * math.sin(dtheta)
+    # # Get expected locations from motion model
+    # for lm in range(len(landmarks[: , 0])):
+    #     x = landmarks[lm, 0] - delta[0, 0]
+    #     y = landmarks[lm, 1] - delta[1, 0]
+    #     d = math.hypot(x, y)
+    #     dtheta = delta[2, 0]
+    #     landmarks[lm, 0] = d * math.cos(dtheta)
+    #     landmarks[lm, 1] = d * math.sin(dtheta)
 
-    return landmarks
+    return particle
 
 # --- CODE FROM PYTHON ROBOTICS / ATSUSHI SAKAI ---
 
@@ -170,7 +170,7 @@ class Particle:
         # Landmark x-y positions
         self.lm = np.zeros((n_landmark, LM_SIZE))
         # Landmark position covariance
-        self.lmP = np.zeros((n_landmark * (LM_SIZE - 1), LM_SIZE - 1))
+        self.lmP = np.zeros((n_landmark * (LM_SIZE - 2), LM_SIZE - 2))
 
 def fast_slam1(particles, u, z):
     """
@@ -261,6 +261,8 @@ def predict_particles(particles, u):
         particles[i].x = px[0, 0] # Replace particle x pos with predicted value
         particles[i].y = px[1, 0] # Replace particle y pos with predicted value
         particles[i].yaw = px[2, 0] # Replace particle yaw with predicted value
+
+        particles[i] = observation_model(particles[i])
 
     return particles
 
@@ -430,7 +432,7 @@ def add_new_landmark(particle, z, Q_cov):
 
     # particle.lm[lm_id, 0] = particle.x + r * c
     # particle.lm[lm_id, 1] = particle.y + r * s
-    particle.lm = np.vstack((particle.lm, [particle.x + r * c, particle.y + r * s, 1.0])) # Add new lm to array
+    particle.lm = np.vstack((particle.lm, [particle.x + r * c, particle.y + r * s, 0.0, 0.0])) # Add new lm to array
 
     # covariance
     dx = r * c
