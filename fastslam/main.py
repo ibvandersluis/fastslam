@@ -68,15 +68,10 @@ def observation_model(particle):
     Compute predictions for relative location of landmarks
 
     :param particle: A particle
-    :return:
-        - d: the expected distance to the landmark
-        - theta: the expected angle of observation
+    :return: The modified particle
     """
 
-    # landmarks = np.zeros([range(len(particle.lm)), 2]) # For landmark x-y positions
-
-    # using motion model determine dx, dy, dTheta
-
+    # Get expected observations for landmarks
     for i in range(len(particle.lm[:, 0])):
         xf = np.array(particle.lm[i, 0:2]).reshape(2, 1)
         dx = xf[0, 0] - particle.x
@@ -87,47 +82,6 @@ def observation_model(particle):
 
         particle.lm[i, 2] = d # Assign expected distance
         particle.lm[i, 3] = theta
-
-        # zp = np.array([d, pi_2_pi(math.atan2(dy, dx) - particle.yaw)]).reshape(2, 1)
-        
-        # dz = z[i, 0:2].reshape(2, 1) - zp
-        # dz[1, 0] = pi_2_pi(dz[1, 0])
-
-        # make gaussian around most likely location
-        # size: start with arbitrary assumption
-        # Update size of gaussian at each time step
-
-    # Get Gaussian around landmark
-        # ???
-
-    # # Find center of Gaussian
-    # for i in range(len(particles[0].lm[0, :])):
-    #     for j in range(N_PARTICLE):
-    #         landmarks[i, 0] += particles[j].lm[i, 0] * particles[j].w
-    #         landmarks[i, 1] += particles[j].lm[i, 1] * particles[j].w
-
-    # # Convert to relative observations
-    # for lm in range(len(landmarks[: , 0])):
-    #     dx = landmarks[lm, 0] - x[0, 0]
-    #     dy = landmarks[lm, 1] - x[1, 0]
-    #     d = math.hypot(dx, dy)
-    #     angle = pi_2_pi(math.atan2(dy, dx) - x[2, 0])
-    #     landmarks[lm, 0] = d * math.cos(angle)
-    #     landmarks[lm, 1] = d * math.sin(angle)
-
-    # # Get dx, dy, dtheta from motion model
-    # x1 = x # Last pose
-    # x2 = motion_model(x, u) # Predicted pose
-    # delta = x2 - x1 # dx = delta[0, 0], dy = delta[1, 0], dtheta = delta[2, 0]
-
-    # # Get expected locations from motion model
-    # for lm in range(len(landmarks[: , 0])):
-    #     x = landmarks[lm, 0] - delta[0, 0]
-    #     y = landmarks[lm, 1] - delta[1, 0]
-    #     d = math.hypot(x, y)
-    #     dtheta = delta[2, 0]
-    #     landmarks[lm, 0] = d * math.cos(dtheta)
-    #     landmarks[lm, 1] = d * math.sin(dtheta)
 
     return particle
 
@@ -475,8 +429,6 @@ def add_new_landmark(particle, z, Q_cov):
     s = math.sin(pi_2_pi(particle.yaw + b - math.pi/2))
     c = math.cos(pi_2_pi(particle.yaw + b - math.pi/2))
 
-    # particle.lm[lm_id, 0] = particle.x + r * c
-    # particle.lm[lm_id, 1] = particle.y + r * s
     particle.lm = np.vstack((particle.lm, [particle.x + r * c, particle.y + r * s, 0.0, 0.0])) # Add new lm to array
 
     # covariance
@@ -486,9 +438,8 @@ def add_new_landmark(particle, z, Q_cov):
     d = math.sqrt(d2) # Get distance
     Gz = np.array([[dx / d, dy / d],
                    [-dy / d2, dx / d2]])
-    # particle.lmP[2 * lm_id:2 * lm_id + 2] = np.linalg.inv(Gz) @ Q_cov @ np.linalg.inv(Gz.T)
     particle.lmP = np.vstack((particle.lmP, np.linalg.inv(Gz) @ Q_cov @ np.linalg.inv(Gz.T)))
-    # Resize covariance to accommodate new lm
+    # Resize covariance to accommodate new lm (?)
 
     return particle
 

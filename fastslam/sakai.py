@@ -638,3 +638,71 @@ def pr_main():
             plt.pause(0.001)
 
 # --- END CODE FROM PYTHON ROBOTICS / ATSUSHI SAKAI ---
+
+# Old version of observation model
+
+def observation_model(particles, x, u, z):
+    """
+    Compute predictions for relative location of landmarks
+
+    :param particle: A particle
+    :return: The modified particle
+    """
+
+    landmarks = np.zeros([range(len(particles.lm)), 2]) # For landmark x-y positions
+
+    # Get expected observations for landmarks
+
+    # for i in range(len(particle.lm[:, 0])):
+    #     xf = np.array(particle.lm[i, 0:2]).reshape(2, 1)
+    #     dx = xf[0, 0] - particle.x
+    #     dy = xf[1, 0] - particle.y
+    #     d2 = dx ** 2 + dy ** 2
+    #     d = math.sqrt(d2)
+    #     theta = pi_2_pi(math.atan2(dy, dx) - particle.yaw)
+
+    #     particle.lm[i, 2] = d # Assign expected distance
+    #     particle.lm[i, 3] = theta
+
+    #     zp = np.array([d, pi_2_pi(math.atan2(dy, dx) - particle.yaw)]).reshape(2, 1)
+        
+    #     dz = z[i, 0:2].reshape(2, 1) - zp
+    #     dz[1, 0] = pi_2_pi(dz[1, 0])
+
+        # make gaussian around most likely location
+        # size: start with arbitrary assumption
+        # Update size of gaussian at each time step
+
+    # Get Gaussian around landmark
+        # ???
+
+    # # Find center of Gaussian
+    for i in range(len(particles[0].lm[0, :])):
+        for j in range(N_PARTICLE):
+            landmarks[i, 0] += particles[j].lm[i, 0] * particles[j].w
+            landmarks[i, 1] += particles[j].lm[i, 1] * particles[j].w
+
+    # # Convert to relative observations
+    for lm in range(len(landmarks[: , 0])):
+        dx = landmarks[lm, 0] - x[0, 0]
+        dy = landmarks[lm, 1] - x[1, 0]
+        d = math.hypot(dx, dy)
+        angle = pi_2_pi(math.atan2(dy, dx) - x[2, 0])
+        landmarks[lm, 0] = d * math.cos(angle)
+        landmarks[lm, 1] = d * math.sin(angle)
+
+    # # Get dx, dy, dtheta from motion model
+    x1 = x # Last pose
+    x2 = motion_model(x, u) # Predicted pose
+    delta = x2 - x1 # dx = delta[0, 0], dy = delta[1, 0], dtheta = delta[2, 0]
+
+    # Get expected locations from motion model
+    for lm in range(len(landmarks[: , 0])):
+        x = landmarks[lm, 0] - delta[0, 0]
+        y = landmarks[lm, 1] - delta[1, 0]
+        d = math.hypot(x, y)
+        dtheta = delta[2, 0]
+        landmarks[lm, 0] = d * math.cos(dtheta)
+        landmarks[lm, 1] = d * math.sin(dtheta)
+
+    return landmarks
