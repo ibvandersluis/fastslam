@@ -312,7 +312,7 @@ def observation(xTrue, xd, u, data):
     xTrue = motion_model(xTrue, u)
 
     # add noise to range observation
-    z = np.zeros((3, 0))
+    z = np.zeros((2, 0))
     # For each landmark
     for i in range(len(data[:, 0])):
         # Get true distance d between pose and landmark
@@ -321,7 +321,7 @@ def observation(xTrue, xd, u, data):
         d = math.hypot(dx, dy) # Distance
         angle = pi_2_pi(math.atan2(dy, dx)) # Angle
         print('Observation angle: ' + str(pi_2_pi(angle)))
-        zi = np.array([d, pi_2_pi(angle), i]).reshape(3, 1) # The predicted measurement
+        zi = np.array([d, pi_2_pi(angle)]).reshape(2, 1) # The predicted measurement
         z = np.hstack((z, zi)) # add prediction to stack of observations
 
     # add noise to input
@@ -345,9 +345,6 @@ def update_with_observation(particles, z):
 
     threshold = 0.01
     norm = scipy.stats.norm(loc=0.0, scale=1.5)
-    d = 0.0
-    p = 0.0
-    print(particles[0].lmP)
 
     # Get standard deviation for each landmark
 
@@ -433,7 +430,7 @@ def compute_jacobians(particle, xf, Pf, Q_cov):
     Computes Jacobian matrices
 
     :param particle: A particle
-    :param xf:
+    :param xf: The particle location
     :param Pf:
     :param Q_cov: A covariance matrix of process noise
     :return:
@@ -474,7 +471,6 @@ def add_new_landmark(particle, z, Q_cov):
 
     r = z[0]
     b = z[1]
-    lm_id = int(z[2])
 
     s = math.sin(pi_2_pi(particle.yaw + b - math.pi/2))
     c = math.cos(pi_2_pi(particle.yaw + b - math.pi/2))
