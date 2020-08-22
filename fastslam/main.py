@@ -65,23 +65,24 @@ def point_angle_line(x, y, theta):
 
 def observation_model(particle):
     """
-    Compute predictions for relative location of landmarks
+    Compute predictions for expected observation of landmarks based on expected pose
+    of vehicle at next time step, computed by motion model
 
     :param particle: A particle
-    :return: The modified particle
+    :return: The particle with landmark predictions added to landmark array
     """
 
     # Get expected observations for landmarks
-    for i in range(len(particle.lm[:, 0])):
-        xf = np.array(particle.lm[i, 0:2]).reshape(2, 1)
-        dx = xf[0, 0] - particle.x
-        dy = xf[1, 0] - particle.y
-        d2 = dx ** 2 + dy ** 2
-        d = math.sqrt(d2)
-        theta = pi_2_pi(math.atan2(dy, dx) - particle.yaw)
+    for i in range(len(particle.lm[:, 0])): # For each landmark in the particle
+        xf = np.array(particle.lm[i, 0:2]).reshape(2, 1) # Let xf be the x, y values of the particle
+        dx = xf[0, 0] - particle.x # Get relative x displacement between landmark and pose
+        dy = xf[1, 0] - particle.y # Same for y
+        d_sq = dx**2 + dy**2 # Pythagorean theorem
+        d = math.sqrt(d_sq) # Get relative distance from vehicle
+        theta = pi_2_pi(math.atan2(dy, dx) - particle.yaw) # Get relative angle of observation
 
         particle.lm[i, 2] = d # Assign expected distance
-        particle.lm[i, 3] = theta
+        particle.lm[i, 3] = theta # Assign expected angle of observation
 
     return particle
 
@@ -231,7 +232,7 @@ def predict_particles(particles, u):
         particles[i].y = px[1, 0] # Replace particle y pos with predicted value
         particles[i].yaw = px[2, 0] # Replace particle yaw with predicted value
 
-        particles[i] = observation_model(particles[i])
+        particles[i] = observation_model(particles[i]) # Calculate expected landmark observations
 
     return particles
 
