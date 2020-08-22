@@ -122,11 +122,10 @@ def law_of_cos(a, b, theta):
 
 class Particle:
 
-    def __init__(self, n_landmark):
+    def __init__(self):
         """
         Construct a new particle
 
-        :param n_landmark: The landmark number
         :return: Returns nothing
         """
         global PARTICLE_ITERATION
@@ -138,9 +137,9 @@ class Particle:
         self.y = 0.0 # Y pos
         self.yaw = 0.0 # Orientation
         # Landmark x-y positions
-        self.lm = np.zeros((n_landmark, LM_SIZE))
+        self.lm = np.zeros((0, LM_SIZE))
         # Landmark position covariance
-        self.lmP = np.zeros((n_landmark * (LM_SIZE - 2), LM_SIZE - 2))
+        self.lmP = np.zeros((0, LM_SIZE - 2))
 
 def fast_slam1(particles, u, z):
     """
@@ -613,7 +612,6 @@ class Listener(BaseListener):
 
         self.timer_last = self.get_clock().now().nanoseconds
         self.capture = [] # For cone data from snapsot of camera
-        self.n_landmark = 0 # Number of initial landmdarks
 
 
         # State Vector [x y yaw]
@@ -627,7 +625,7 @@ class Listener(BaseListener):
         self.hxDR = self.xTrue
 
         # Generate initial particles
-        self.particles = [Particle(self.n_landmark) for _ in range(N_PARTICLE)]
+        self.particles = [Particle() for _ in range(N_PARTICLE)]
 
         self.u = np.array([self.v, self.yaw]).reshape(2, 1)
         self.ud = None
