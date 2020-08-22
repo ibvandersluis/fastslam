@@ -306,7 +306,6 @@ def update_with_observation(particles, z):
     for iz in range(len(z[0, :])):
         # For each particle
         for ip in range(N_PARTICLE):
-            a = time.time()
             match = False
             # For each landmark
             for lm in range(len(particles[ip].lm[: , 0])):
@@ -324,28 +323,6 @@ def update_with_observation(particles, z):
             if (match == False):
                 print('ADDING LANDMARK')
                 particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
-            b = time.time()
-            print('Particle ' + str(ip) + ' completed in ' + str(b-a) + ' seconds')
-
-    """
-    for iz in range(len(z[0, :])):
-
-        landmark_id = int(z[2, iz]) # Get landmark id
-
-        for ip in range(N_PARTICLE):
-            if (landmark_id < len(particles[ip].lm[: , 0])): # If there are
-                # Add new landmark if likelihood is less than 1%
-                if (particles[ip].lm[landmark_id, 2]) <= 0.01:
-                # if abs(particles[ip].lm[landmark_id, 0]) <= 0.01:
-                    particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
-                # Else update the known landmark
-                else:
-                    w = compute_weight(particles[ip], z[:, iz], Q)
-                    particles[ip].w *= w
-                    particles[ip] = update_landmark(particles[ip], z[:, iz], Q)
-            else:
-                particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
-    """
 
     return particles
 
@@ -439,7 +416,6 @@ def add_new_landmark(particle, z, Q_cov):
     Gz = np.array([[dx / d, dy / d],
                    [-dy / d2, dx / d2]])
     particle.lmP = np.vstack((particle.lmP, np.linalg.inv(Gz) @ Q_cov @ np.linalg.inv(Gz.T)))
-    # Resize covariance to accommodate new lm (?)
 
     return particle
 
@@ -536,24 +512,79 @@ def resampling(particles):
     for i in range(N_PARTICLE):
         pw.append(particles[i].w)
 
+    # this creates a 1-d array of the current particle weights
     pw = np.array(pw)
 
+    # each particle is given a resampling significance here of 1/weight^2
+    # (the 'effective sampling size') and the sum of these will be a measure
+    # of how many current particles are 'doing something useful'
+    # The matrix multiply below results in a single number out.
     n_eff = 1.0 / (pw @ pw.T)  # Effective particle number
     # print(n_eff)
 
+    # have the number of useful particles become too small (i.e., do too
+    # many particles have negligible weight)? NTH here is 2/3 the original
+    # number of particles.
     if n_eff < NTH:  # resampling
+        # generate a vector with the sum of all weights up to the ith particle
+        # at index i in the vector
         w_cum = np.cumsum(pw) # Cumulative weight is the sum of all particle weights
+        # base will be a vector of length N_PARTICLE with a value for the
+        # ith element of i/N_PARTICLE if i is zero-indexed (i.e. you have
+        # i = 0, 1, 2, ... N_PARTICLE-1).
         base = np.cumsum(pw * 0.0 + 1 / N_PARTICLE) - 1 / N_PARTICLE
+        # resample ID adds some random offset to each element of the base array
+        # above. in practice, this means we get an array in units of 1/N_PARTICLE
+        # with each element offset by some random fraction of the distance
+        # between it and the next multiple of 1/N_PARTICLE. Note that
+        # the argument to the rand() function only indicates the shape
+        # of an array of random numbers (between 0 and 1) that it will
+        # create.
         resample_id = base + np.random.rand(base.shape[0]) / N_PARTICLE
 
         inds = []
         ind = 0
+        # go through each particle
         for ip in range(N_PARTICLE):
+            # only generate a new particle for indices less than the number of
+            # particles already present. resample_id is intended to be a
+            # series of n-ile (as in quartile, octile, etc) bins with some
+            # random factor, indicating a total hypothetical number of
+            # particles thus far generated. w_cum, meanwhile, is supposed
+            # to represent the relative probability thus far of particles
+            # with indices less than ind having been regenerated. The machinery
+            # is starting with the lowest index, generating some number of
+            # particles approximately equal to the expected number that it
+            # would have had according to the cumulative statistics, then
+            # moving on to the next index. This is what the comparison of
+            # resample id[ip] with w_cum[ind] is achieving - setting the
+            # threshold at which the stepping machinery moves onto the next
+            # index to be generated, i.e. the next particle to be replicated.
+            # Note that the index ip here is almost irrelevant except as a
+            # way of keeping track of how many particles total have been
+            # (re)generated. 
+            # Some VERY deep and obscure algorithmic trickery is being
+            # employed here, this whole section will be VERY non-obvious to
+            # people who have not been exposed to a specific description (and
+            # probably proof) of the algorithm. Looks like something probably
+            # copied out of a paper.
             while (ind < w_cum.shape[0] - 1) \
                     and (resample_id[ip] > w_cum[ind]):
                 ind += 1
+            # only one index will be generated for each original particle,
+            # its value will be some index of one of the particles, but there
+            # may (probably will) be duplicates of some indices
             inds.append(ind)
 
+        # each regenerated particle takes its values from the corresponding
+        # value of the particle that was indexed by the particular one in inds.
+        # for example, the original particle weight array might have looked like:
+        # [0.1, 0.3, 0.2, 0.3, 0.1]. Maybe then the generated indices went:
+        # [1, 1, 2, 3, 3] (the first and fifth were too low in weight, and
+        # the third was lower in weight than the second and fourth). These
+        # are the indices that will be selected for the next group of particles.
+        # so the system keeps the number of particles the same but redistributes
+        # them amongst the available entries by weight.
         tmp_particles = particles[:]
         for i in range(len(inds)):
             particles[i].x = tmp_particles[inds[i]].x
@@ -656,7 +687,7 @@ class Listener(BaseListener):
         # Increment counter
         self.count += 1
         # Dump particle lm arrays to text file
-        if (self.count >= 10):
+        if (self.count >= 1):
             self.debug += 1
             file = 'debug' + str(self.debug) + '.txt'
             f = open(file, 'w')
