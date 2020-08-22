@@ -39,11 +39,11 @@ Q_sim = np.diag([0.3, np.deg2rad(2.0)]) ** 2
 R_sim = np.diag([0.5, np.deg2rad(10.0)]) ** 2
 OFFSET_YAW_RATE_NOISE = 0.01
 
-DT = 0.2  # time tick [s]
+DT = 0.0  # time tick [s]
 M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
 STATE_SIZE = 3  # State size [x, y, yaw]
 LM_SIZE = 4  # LM state size [x, y, distance, angle]
-N_PARTICLE = 10  # number of particle
+N_PARTICLE = 3  # number of particle
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 PARTICLE_ITERATION = 0 # n for the nth particle production
 
@@ -75,8 +75,8 @@ def observation_model(particle):
     # Get expected observations for landmarks
     for i in range(len(particle.lm[:, 0])): # For each landmark in the particle
         xf = np.array(particle.lm[i, 0:2]).reshape(2, 1) # Let xf be the x, y values of the particle
-        dx = xf[0, 0] - particle.x # Get relative x displacement between landmark and pose
-        dy = xf[1, 0] - particle.y # Same for y
+        dx = xf[0, 0] - particle.x # Get relative displacement between landmark and pose
+        dy = xf[1, 0] - particle.y
         d_sq = dx**2 + dy**2 # Pythagorean theorem
         d = math.sqrt(d_sq) # Get relative distance from vehicle
         theta = pi_2_pi(math.atan2(dy, dx) - particle.yaw) # Get relative angle of observation
@@ -698,7 +698,9 @@ class Listener(BaseListener):
                 f.write('--- Particle #' + str(pnum) + ':\n')
                 for i in range(len(particle.lm[:, 0])):
                     f.write('lm #' + str(i + 1) + ' -- x: ' + str(particle.lm[i, 0])
-                            + ', y: ' + str(particle.lm[i, 1]) + '\n')
+                            + ', y: ' + str(particle.lm[i, 1]) + '\n'
+                            + '      -- d: ' + str(particle.lm[i, 2])
+                            + ', a: ' + str(particle.lm[i, 3]) + '\n')
             f.close()
             self.count = 0
 
@@ -779,6 +781,18 @@ class Listener(BaseListener):
             plt.plot(self.particles[i].x, self.particles[i].y, ".r")
             # Plot landmark estimates as blue X's
             plt.plot(self.particles[i].lm[:, 0], self.particles[i].lm[:, 1], "xb")
+            # Plot expected observations of landmarks
+            for particle in self.particles:
+                x = particle.x
+                y = particle.y
+                for lm in particle.lm:
+                    d = lm[2]
+                    theta = lm[3]
+                    angle = theta + particle.yaw
+                    tx = d * math.cos(angle)
+                    ty = d * math.sin(angle)
+
+                    plt.plot(x + tx, y + ty, "xg")                    
 
         plt.plot(self.hxTrue[0, :], self.hxTrue[1, :], "-b") # Plot xTrue with solid blue line
         plt.plot(self.hxDR[0, :], self.hxDR[1, :], "-k") # Plot dead reckoning with solid black line
