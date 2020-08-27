@@ -46,6 +46,8 @@ LM_SIZE = 4  # LM state size [x, y, distance, angle]
 N_PARTICLE = 3  # number of particle
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 PARTICLE_ITERATION = 0 # n for the nth particle production
+UPDATES = 0
+ADDS = 0
 
 def point_angle_line(x, y, theta):
     """
@@ -399,6 +401,8 @@ def add_new_landmark(particle, z, Q_cov):
     :param Q_cov: A covariance matrix of process noise
     :return: A particle
     """
+    global ADDS
+    ADDS += 1
 
     r = z[0]
     b = z[1]
@@ -455,6 +459,8 @@ def update_landmark(particle, z, Q_cov, lm_id):
     :param Q_cov: A covariance matrix of process noise
     :return: A particle
     """
+    global UPDATES
+    UPDATES += 1
 
     # lm_id = int(z[2])
     xf = np.array(particle.lm[lm_id, 0:2]).reshape(2, 1)
@@ -649,8 +655,6 @@ class Listener(BaseListener):
         # gets links (all objects) from gazebo
         self.link_sub = self.create_subscription(LinkStates, "/gazebo/link_states", self.link_states_callback, 10)
 
-        # ros2 topic pub /gazebo/cmd_vel geometry_msgs/Twist '{linear: {x: 1.0}, angular: {z: 0.1}}' 
-
         self.create_timer(1.0, self.timer_callback)
 
         # multiple subscribers - not finished
@@ -664,6 +668,9 @@ class Listener(BaseListener):
         # end multiple subscribers
 
     def cones_callback(self, msg: ConeArray):
+        # Get global variables
+        global ADDS
+        global UPDATES
         # Place x y positions of cones into self.capture
         self.capture = np.array([[cone.x, cone.y] for cone in msg.cones])
         print(self.capture)
@@ -699,6 +706,10 @@ class Listener(BaseListener):
                             + ', y: ' + str(particle.lm[i, 1]) + '\n'
                             + '      -- d: ' + str(particle.lm[i, 2])
                             + ', a: ' + str(particle.lm[i, 3]) + '\n')
+            f.write('PARTICLES ADDED: ' + str(ADDS) + '\n')
+            f.write('PARTICLES UPDATED: ' + str(UPDATES) + '\n')
+            ADDS = 0
+            UPDATES = 0
             f.close()
             self.count = 0
 
