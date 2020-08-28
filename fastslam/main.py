@@ -42,7 +42,7 @@ OFFSET_YAW_RATE_NOISE = 0.01
 DT = 0.0  # time tick [s]
 M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
 STATE_SIZE = 3  # State size [x, y, yaw]
-LM_SIZE = 4  # LM state size [x, y, distance, angle]
+LM_SIZE = 2  # LM state size [x, y]
 N_PARTICLE = 3  # number of particle
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 PARTICLE_ITERATION = 0 # n for the nth particle production
@@ -138,10 +138,10 @@ class Particle:
         self.x = 0.0 # X pos
         self.y = 0.0 # Y pos
         self.yaw = 0.0 # Orientation
-        # Landmark x-y positions
-        self.lm = np.zeros((0, LM_SIZE))
-        # Landmark position covariance
-        self.lmP = np.zeros((0, LM_SIZE - 2))
+        # Landmark array
+        self.lm = np.zeros((0, LM_SIZE + 2)) # Add space for expected distance and angle
+        # Landmark position covariance array
+        self.lmP = np.zeros((0, LM_SIZE))
 
 def fast_slam1(particles, u, z):
     """
@@ -176,14 +176,17 @@ def calc_final_state(particles):
     xEst = np.zeros((STATE_SIZE, 1)) # Empty state vector for: x, y, yaw
 
     particles = normalize_weight(particles)
+    weight = 0.0
 
     for i in range(N_PARTICLE):
         xEst[0, 0] += particles[i].w * particles[i].x
         xEst[1, 0] += particles[i].w * particles[i].y
         xEst[2, 0] += particles[i].w * particles[i].yaw
+        weight += particles[i].w
+    
+    print('Weight sum: ' + str(weight))
 
     xEst[2, 0] = pi_2_pi(xEst[2, 0])
-    #  print(xEst)
 
     return xEst
 
@@ -196,12 +199,12 @@ def motion_model(x, u):
     :return: Returns new state vector x
     """
     
-    # A 3x3 matrix with one's passing through the diagonal
+    # A 3x3 identity matrix
     F = np.array([[1.0, 0, 0],
                   [0, 1.0, 0],
                   [0, 0, 1.0]])
 
-    # A 3x2 matrix
+    # A 3x2 matrix to calculate new x, y, yaw given controls
     B = np.array([[DT * math.cos(x[2, 0]), 0],
                   [DT * math.sin(x[2, 0]), 0],
                   [0.0, DT]])
@@ -253,8 +256,8 @@ def observation(xTrue, xd, u, data):
     Record an observation
 
     :param xTrue: The true state
-    :param xd: The state expectation
-    :param u: Linear and angular velocity
+    :param xd: The dead reckoning state
+    :param u: Control vector: linear and angular velocity
     :param data: The landmarks seen by the camera
     :return:
         xTrue - the true state
@@ -264,23 +267,23 @@ def observation(xTrue, xd, u, data):
     """
     print('MAKING OBSERVATION')
 
-    # calc true state
+    # Calc true state
     xTrue = motion_model(xTrue, u)
 
-    # add noise to range observation
+    # Initialize np array for observed cones
     z = np.zeros((2, 0))
     # For each landmark
     for i in range(len(data[:, 0])):
-        # Get true distance d between pose and landmark
-        dx = data[i, 0] # dx = x
-        dy = data[i, 1] # dy = y
+        # Calculate distance d between camera and landmark
+        dx = data[i, 0] # X
+        dy = data[i, 1] # Y
         d = math.hypot(dx, dy) # Distance
         angle = pi_2_pi(math.atan2(dy, dx)) # Angle
-        print('Observation angle: ' + str(pi_2_pi(angle)))
-        zi = np.array([d, pi_2_pi(angle)]).reshape(2, 1) # The predicted measurement
-        z = np.hstack((z, zi)) # add prediction to stack of observations
+        print('Observation angle: ' + str(angle))
+        zi = np.array([d, angle]).reshape(2, 1) # The predicted measurement
+        z = np.hstack((z, zi)) # Add prediction to stack of observations
 
-    # add noise to input
+    # Add noise to input
     ud1 = u[0, 0] + np.random.randn() * R_sim[0, 0] ** 0.5
     ud2 = u[1, 0] + np.random.randn() * R_sim[1, 1] ** 0.5 + OFFSET_YAW_RATE_NOISE
     ud = np.array([ud1, ud2]).reshape(2, 1)
@@ -299,32 +302,36 @@ def update_with_observation(particles, z):
     """
     print('UPDATING WITH OBSERVATION')
 
-    threshold = 0.01
-    norm = scipy.stats.norm(loc=0.0, scale=1.5)
+    norm = scipy.stats.norm(loc=0.0, scale=1.5) # Generate normal distribution
+    threshold = norm.ppf(0.99) # Past this distance gives under 1% probability
 
     # Get standard deviation for each landmark
 
     # For each landmark in the observation
     for iz in range(len(z[0, :])):
         # For each particle
+        a = time.time()
         for ip in range(N_PARTICLE):
+            m = time.time()
             match = False
             # For each landmark
             for lm in range(len(particles[ip].lm[: , 0])):
-                # norm = scipy.stats.norm(loc=0.0, scale=1.0)
+                j = time.time()
                 d = law_of_cos(z[0, iz], particles[ip].lm[lm, 2], z[1, iz] - particles[ip].lm[lm, 3])
-                p = norm.pdf(d)
-                if (p > threshold):
-                    print('UPDATING LANDMARK')
-                    print('d: ' + str(d) + ', p: ' + str(p))
+                k = time.time()
+                print('Calculated d in ' + str(k-j) + 's')
+                if (d <= threshold):
                     w = compute_weight(particles[ip], z[:, iz], Q, lm)
                     particles[ip].w *= w
                     particles[ip] = update_landmark(particles[ip], z[:, iz], Q, lm)
                     match = True
                     break
             if (match == False):
-                print('ADDING LANDMARK')
                 particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
+            n = time.time()
+            print('PARTICLE#' + str(ip) + ' took ' + str(n-m) + 's')
+        b = time.time()
+        print('OBS#' + str(iz) + ' took ' + str(b-a) + 's')
 
     return particles
 
@@ -335,6 +342,7 @@ def compute_weight(particle, z, Q_cov, lm_id):
     :param particle: A particle
     :param z: An observation
     :param Q_cov: The measurement covariance
+    :param lm_id: The id of the landmark
     :return: Returns particle weight
     """
     # lm_id = int(z[2]) # Get landmark id from z
@@ -685,7 +693,7 @@ class Listener(BaseListener):
         # Get observation
         self.xTrue, self.z, self.xDR, self.ud = observation(self.xTrue, self.xDR, self.u, self.capture)
 
-        print('xTrue Angle: ' + str(self.xTrue[2, 0]))
+        print('xEst Angle: ' + str(self.xEst[2, 0]))
 
         # Run SLAM
         self.particles = fast_slam1(self.particles, self.ud, self.z)
