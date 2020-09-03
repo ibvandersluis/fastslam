@@ -22,7 +22,7 @@ from copy import deepcopy
 from helpers.listener import BaseListener
 from helpers import shortcuts
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
-from brookes_msgs.msg import Cone, CarPos, ConeArray, IMU, Label
+from obr_msgs.msg import Cone, CarPos, ConeArray, IMU, Label
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import Point, Twist, Vector3
 from gazebo_msgs.msg import LinkStates
@@ -43,7 +43,7 @@ DT = 0.0  # time tick [s]
 M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
 STATE_SIZE = 3  # State size [x, y, yaw]
 LM_SIZE = 2  # LM state size [x, y]
-N_PARTICLE = 3  # number of particle
+N_PARTICLE = 10  # number of particle
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 PARTICLE_ITERATION = 0 # n for the nth particle production
 UPDATES = 0
@@ -733,6 +733,7 @@ class Listener(BaseListener):
         self.hxEst = np.hstack((self.hxEst, self.x_state))
         self.hxDR = np.hstack((self.hxDR, self.xDR))
         self.hxTrue = np.hstack((self.hxTrue, self.xTrue))
+        print('Finished cones callback')
 
     def control_callback(self, msg: Twist):
         str(msg) # For some reason this is needed to access msg.linear.x
@@ -799,17 +800,17 @@ class Listener(BaseListener):
             # Plot landmark estimates as blue X's
             plt.plot(self.particles[i].lm[:, 0], self.particles[i].lm[:, 1], "xb")
             # Plot expected observations of landmarks
-            for particle in self.particles:
-                x = particle.x
-                y = particle.y
-                for lm in particle.lm:
-                    d = lm[2]
-                    theta = lm[3]
-                    angle = theta + particle.yaw
-                    tx = d * math.cos(angle)
-                    ty = d * math.sin(angle)
+            # for particle in self.particles:
+            #     x = particle.x
+            #     y = particle.y
+            #     for lm in particle.lm:
+            #         d = lm[2]
+            #         theta = lm[3]
+            #         angle = theta + particle.yaw
+            #         tx = d * math.cos(angle)
+            #         ty = d * math.sin(angle)
 
-                    plt.plot(x + tx, y + ty, "xg")                    
+            #         plt.plot(x + tx, y + ty, "xg")                    
 
         plt.plot(self.hxTrue[0, :], self.hxTrue[1, :], "-b") # Plot xTrue with solid blue line
         plt.plot(self.hxDR[0, :], self.hxDR[1, :], "-k") # Plot dead reckoning with solid black line
