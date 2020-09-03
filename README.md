@@ -39,9 +39,13 @@ If you are interested in learning more about SLAM, here are some of the resource
 ## Installation
 
 1. Clone this repository into the `/src` directory of your ROS 2 workspace
-2. Open a terminal and source your ROS installation
+2. Also clone dependent packages
+    - `git clone https://gitlab.com/obr-a/integration/ads_dv_msgs.git` [link](https://gitlab.com/obr-a/integration/ads_dv_msgs)
+    - `git clone https://gitlab.com/obr-a/integration/obr_msgs.git` [link](https://gitlab.com/obr-a/integration/obr_msgs)
+    - `git clone https://gitlab.com/obr-a/integration/helpers.git` [link](https://gitlab.com/obr-a/integration/helpers)
+3. Open a terminal and source your ROS installation
     - `source /opt/ros/dashing/setup.bash`
-3. Build
+4. Build
     - `colcon build --symlink-install`
 
 ## Usage
