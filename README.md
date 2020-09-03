@@ -28,10 +28,10 @@ If you are interested in learning more about SLAM, here are some of the resource
     - [**_Particle Filters Explained_**](https://www.youtube.com/watch?v=sz7cJuMgKFg)
     - [**_Autonomous Navigation, Part 2: Understanding the Particle Filter_**](https://www.youtube.com/watch?v=NrzmH_yerBU)
 - Then these
-    - [Cyrill Stachniss' SLAM lectures](https://www.youtube.com/watch?v=U6vr3iNrwRA&list=PLgnQpQtFTOGQrZ4O5QzbIHgl3b1JHimN_)
-        - Especially [Lecture 12](https://www.youtube.com/watch?v=Tz3pg3d1TIo&list=PLgnQpQtFTOGQrZ4O5QzbIHgl3b1JHimN_&index=14) on FastSLAM
-    - [Claus Brenner's SLAM course](https://www.youtube.com/watch?v=B2qzYCeT9oQ&list=PLpUPoM7Rgzi_7YWn14Va2FODh7LzADBSm)
-        - Especially [Unit G](https://www.youtube.com/watch?v=9WyrWJcvneE&list=PLpUPoM7Rgzi_7YWn14Va2FODh7LzADBSm&index=60) on FastSLAM
+    - [**_Cyrill Stachniss' SLAM lectures_**](https://www.youtube.com/watch?v=U6vr3iNrwRA&list=PLgnQpQtFTOGQrZ4O5QzbIHgl3b1JHimN_)
+        - Especially [__Lecture 12__](https://www.youtube.com/watch?v=Tz3pg3d1TIo&list=PLgnQpQtFTOGQrZ4O5QzbIHgl3b1JHimN_&index=14) on FastSLAM
+    - [**_Claus Brenner's SLAM course_**](https://www.youtube.com/watch?v=B2qzYCeT9oQ&list=PLpUPoM7Rgzi_7YWn14Va2FODh7LzADBSm)
+        - Especially [__Unit G__](https://www.youtube.com/watch?v=9WyrWJcvneE&list=PLpUPoM7Rgzi_7YWn14Va2FODh7LzADBSm&index=60) on FastSLAM
 
 ## Requirements
 - Assumes an existing ROS 2 installation and workspace (Dashing or newer)
@@ -40,7 +40,7 @@ If you are interested in learning more about SLAM, here are some of the resource
 
 1. Clone this repository into the `/src` directory of your ROS 2 workspace
 2. Open a terminal and source your ROS installation
-    - Ex: `source /opt/ros/dashing/setup.bash`
+    - `source /opt/ros/dashing/setup.bash`
 3. Build
     - `colcon build --symlink-install`
 
