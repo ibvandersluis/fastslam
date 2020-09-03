@@ -16,24 +16,42 @@ If you are interested in learning more about SLAM, here are some of the resource
 - [**_FastSLAM 2.0: An Improved Particle Filtering Algorithm for Simultaneous Localization and Mapping that Provably Converges_**](http://robots.stanford.edu/papers/Montemerlo03a.pdf) - Michael Montemerlo et. al., 2003
 
 #### Books
-- [**_Probabilistic Robotics_**](https://github.com/liulinbo/slam/blob/master/Probabilistic%20Robotics%20_Sebastian%20Thrun%20et%20al..pdf) -- Sebastian Thrun et al., 2006
-- [**_Introduction to Autonomous Mobile Robots_**](http://home.deib.polimi.it/gini/robot/docs/siegwart.pdf) -- Roland Siegwart & Illah R. Nourbakhsh, 2004
+- [**_Probabilistic Robotics_**](http://www.probabilistic-robotics.org/) -- Sebastian Thrun et al., 2006
+- [**_Introduction to Autonomous Mobile Robots_**](https://mitpress.mit.edu/books/introduction-autonomous-mobile-robots-second-edition) -- Roland Siegwart & Illah R. Nourbakhsh, 2004
 
 #### Webpages
 - [**_PythonRobotics_**](https://pythonrobotics.readthedocs.io/en/latest/getting_started.html) -- Atsushi Sakai et. al.
 
 #### Videos
-- [**_Particle Filter Explained Without Equations_**](https://www.youtube.com/watch?v=aUkBa1zMKv4&t=5s)
-- [**_Particle Filters Explained_**](https://www.youtube.com/watch?v=sz7cJuMgKFg)
-- [**_Autonomous Navigation, Part 2: Understanding the Particle Filter_**](https://www.youtube.com/watch?v=NrzmH_yerBU)
+- Start with these
+    - [**_Particle Filter Explained Without Equations_**](https://www.youtube.com/watch?v=aUkBa1zMKv4&t=5s)
+    - [**_Particle Filters Explained_**](https://www.youtube.com/watch?v=sz7cJuMgKFg)
+    - [**_Autonomous Navigation, Part 2: Understanding the Particle Filter_**](https://www.youtube.com/watch?v=NrzmH_yerBU)
+- Then these
+    - [Cyrill Stachniss' SLAM lectures](https://www.youtube.com/watch?v=U6vr3iNrwRA&list=PLgnQpQtFTOGQrZ4O5QzbIHgl3b1JHimN_)
+        - Especially [Lecture 12](https://www.youtube.com/watch?v=Tz3pg3d1TIo&list=PLgnQpQtFTOGQrZ4O5QzbIHgl3b1JHimN_&index=14) on FastSLAM
+    - [Claus Brenner's SLAM course](https://www.youtube.com/watch?v=B2qzYCeT9oQ&list=PLpUPoM7Rgzi_7YWn14Va2FODh7LzADBSm)
+        - Especially [Unit G](https://www.youtube.com/watch?v=9WyrWJcvneE&list=PLpUPoM7Rgzi_7YWn14Va2FODh7LzADBSm&index=60) on FastSLAM
+
+## Requirements
+- Assumes an existing ROS 2 installation and workspace (Dashing or newer)
 
 ## Installation
 
-Installation information will be detailed here.
+1. Clone this repository into the `/src` directory of your ROS 2 workspace
+2. Open a terminal and source your ROS installation
+    - Ex: `source /opt/ros/dashing/setup.bash`
+3. Build
+    - `colcon build --symlink-install`
 
 ## Usage
-
-Usage information will be detailed here.
+After you have run `colcon build`:
+1. Open 2 new tabs in your terminal and source the workspace in each
+    - `. install/setup.bash`
+2. In one of the new tabs play the rosbag
+    - `ros2 bag play <path_to_rosbag>`
+3. In the other new tab run the FastSLAM node
+    - `ros2 run fastslam main`
 
 ## Authors
 
