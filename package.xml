@@ -10,7 +10,7 @@
     <author email="isaacvandersluis@gmail.com">Isaac Vander Sluis</author>
 
     <exec_depend>helpers</exec_depend>
-    <exec_depend>brookes_msgs</exec_depend>
+    <exec_depend>obr_msgs</exec_depend>
     <exec_depend>rclcpp</exec_depend>
     <exec_depend>geometry_msgs</exec_depend>
     <exec_depend>sensor_msgs</exec_depend>
