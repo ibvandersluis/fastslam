@@ -30,7 +30,33 @@ def fastslam():
     resample()
 
 def predict():
+    # For all particles:
     # Odometry: xt given from motion_model(x, u)
+    # Make measurement prediction
+    # Calculate H (jacobian)
+    # Calculate Q (measurement covariance)
+    # Calculate w (likelihood of correspondence)
+
+    # w[k] = max(wj)
+    # c_hat = argmax(w)
+    # N checked
+    # For all landmarks
+        # If j new feature,
+            # Initialise mean
+            # Initialise covariance
+            # Initialise counter (haven't done this yet)
+        # Else if it is an observed feature
+            # Calculate Kalman gain
+            # Update mean
+            # Update covariance
+            # Increment counter
+        # Else
+            # Should landmark have been seen?
+            # Yes -> decrement counter
+            # No -> do nothing
+            # If counter < 0, remove
+    # Resample particles M with probability derived from weight
+    # Return new particles
 
 
 def update():

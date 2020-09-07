@@ -31,7 +31,7 @@ from gazebo_msgs.msg import LinkStates
 shortcuts.hint()
 
 # Fast SLAM covariance
-Q = np.diag([3.0, np.deg2rad(10.0)]) ** 2 # Covariance matrix of process noise
+Q = np.diag([3.0, np.deg2rad(10.0)]) ** 2 # Covariance matrix of measurement noise
 R = np.diag([1.0, np.deg2rad(20.0)]) ** 2 # Covariance matrix of observation noise at time t
 
 #  Simulation parameter
@@ -371,29 +371,29 @@ def compute_jacobians(particle, xf, Pf, Q_cov):
     Computes Jacobian matrices
 
     :param particle: A particle
-    :param xf: The particle location
+    :param xf: The landmark location
     :param Pf:
     :param Q_cov: A covariance matrix of process noise
     :return:
-        zp - 
+        zp - The relative distance and angle to the landmark
         Hv -
         Hf - 
-        Sf - 
+        Sf - Qt, the covariance of process noise at time t
     """
 
     # Compute distance
     dx = xf[0, 0] - particle.x
     dy = xf[1, 0] - particle.y
-    d2 = dx ** 2 + dy ** 2
-    d = math.sqrt(d2)
+    d_sq = dx ** 2 + dy ** 2
+    d = math.sqrt(d_sq)
 
     zp = np.array([d, pi_2_pi(math.atan2(dy, dx) - particle.yaw)]).reshape(2, 1)
 
     Hv = np.array([[-dx / d, -dy / d, 0.0],
-                   [dy / d2, -dx / d2, -1.0]])
+                   [dy / d_sq, -dx / d_sq, -1.0]])
 
     Hf = np.array([[dx / d, dy / d],
-                   [-dy / d2, dx / d2]])
+                   [-dy / d_sq, dx / d_sq]])
 
     Sf = Hf @ Pf @ Hf.T + Q_cov
 
@@ -418,7 +418,8 @@ def add_new_landmark(particle, z, Q_cov):
     s = math.sin(pi_2_pi(particle.yaw + b - math.pi/2))
     c = math.cos(pi_2_pi(particle.yaw + b - math.pi/2))
 
-    particle.lm = np.vstack((particle.lm, [particle.x + r * c, particle.y + r * s, 0.0, 0.0])) # Add new lm to array
+    # Add new lm to array
+    particle.lm = np.vstack((particle.lm, [particle.x + r * c, particle.y + r * s, 0.0, 0.0]))
 
     # covariance
     dx = r * c
