@@ -51,13 +51,24 @@ ADDS = 0
 # Definition of variables
 
     # x: by itself, refers to the state vector [x, y, theta]
+    # xd: state with noise
+
     # u: the control vector [linear velocity, angular velocity]
+    # ud: controls with noise
+
     # z: a set of observations zi, each containing a vector [distance, angle]
     # z_hat: the predicted observation for a landmark
     # dz: the difference between expected observation and actual observation (z - z_hat)
+
     # xEst: the estimated true state vector of the vehicle
     # Hv:
     # Hf: 
+
+    # d: distance (metres)
+    # d_sq: distance squared
+
+    # dx: delta x (change in x)
+    # dy: delta y (change in y)
 
     # Particles
         # Particle.w: the weight of the particle
@@ -70,7 +81,13 @@ ADDS = 0
 # Equations
 
 # Calculate Qj (measurement covariance)
-# Qj = H @ sigma @ H.T + Q
+    # Qj = H @ sigma @ H.T + Q
+
+# Calculate weight
+    # num = np.exp(-0.5 * dz.T @ invQ @ dz)
+    # den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
+
+    # w = num / den
 
 def point_angle_line(x, y, theta):
     """
@@ -170,7 +187,7 @@ def fast_slam1(particles, u, z):
     """
     Updates beliefs about position and landmarks using FastSLAM 1.0
 
-    :param particles:
+    :param particles: An array of particles
     :param u: The controls (velocity and orientation)
     :param z: The observation
     :return: Returns updated particles (position and landmarks)
@@ -285,7 +302,7 @@ def observation(xTrue, xd, u, data):
     :return:
         xTrue - the true state
         z - the observation
-        xd - sate expectation
+        xd - dead reckoning state
         ud - Input with noise
     """
     print('MAKING OBSERVATION')
@@ -301,9 +318,9 @@ def observation(xTrue, xd, u, data):
         dx = data[i, 0] # X
         dy = data[i, 1] # Y
         d = np.hypot(dx, dy) # Distance
-        angle = pi_2_pi(np.arctan2(dy, dx)) # Angle
-        print('Observation angle: ' + str(angle))
-        zi = np.array([d, angle]).reshape(2, 1) # The predicted measurement
+        theta = pi_2_pi(np.arctan2(dy, dx)) # Angle
+        print('Observation angle: ' + str(theta))
+        zi = np.array([d, theta]).reshape(2, 1) # The predicted measurement
         z = np.hstack((z, zi)) # Add prediction to stack of observations
 
     # Add noise to input
@@ -365,7 +382,7 @@ def compute_weight(particle, z, Q_cov, lm_id):
     :param particle: A particle
     :param z: An observation
     :param Q_cov: The measurement covariance
-    :param lm_id: The id of the landmark
+    :param lm_id: The ID of the landmark
     :return: Returns particle weight
     """
     # lm_id = int(z[2]) # Get landmark id from z
@@ -377,12 +394,12 @@ def compute_weight(particle, z, Q_cov, lm_id):
     dz[1, 0] = pi_2_pi(dz[1, 0])
 
     try:
-        invS = np.linalg.inv(Qj)
+        invQ = np.linalg.inv(Qj)
     except np.linalg.linalg.LinAlgError:
         print("singular")
         return 1.0
 
-    num = np.exp(-0.5 * dz.T @ invS @ dz)
+    num = np.exp(-0.5 * dz.T @ invQ @ dz)
     den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
 
     w = num / den
@@ -435,8 +452,8 @@ def add_new_landmark(particle, z, Q_cov):
     global ADDS
     ADDS += 1
 
-    r = z[0]
-    b = z[1]
+    r = z[0] # Distance
+    b = z[1] # Angle
 
     s = np.sin(pi_2_pi(particle.theta + b - np.pi/2))
     c = np.cos(pi_2_pi(particle.theta + b - np.pi/2))
@@ -459,14 +476,14 @@ def update_kf_with_cholesky(mu, sigma, dz, Q_cov, Hf):
     """
     Update Kalman filter
 
-    :param mu:
-    :param sigma:
+    :param mu: The mean of a landmark EKF
+    :param sigma: The 2x2 covariance of a landmark EKF
     :param dz: The difference between the actual and expected observation
     :param Q_cov: A covariance matrix of process noise
     :param Hf:
     :return:
-        x - 
-        P - 
+        mu - New EKF mean as x-y coordinates
+        sigma - New EKF covariance matrix
     """
     PHt = sigma @ Hf.T
     S = Hf @ PHt + Q_cov
@@ -477,8 +494,8 @@ def update_kf_with_cholesky(mu, sigma, dz, Q_cov, Hf):
     W1 = PHt @ s_chol_inv
     W = W1 @ s_chol_inv.T
 
-    mu = mu + W @ dz
-    sigma = sigma - W1 @ W1.T
+    mu += W @ dz
+    sigma -= W1 @ W1.T
 
     return mu, sigma
 
