@@ -15,7 +15,6 @@ import message_filters
 import rclpy
 import numpy as np
 import matplotlib.pyplot as plt
-import math
 import time
 import scipy.stats
 from copy import deepcopy
@@ -82,7 +81,7 @@ def point_angle_line(x, y, theta):
     :point y: The y value of the point
     :return: Nothing
     """
-    slope = math.tan(theta)
+    slope = np.tan(theta)
     intercept = y - slope * x
     axes = plt.gca()
     x_vals = np.array(axes.get_xlim())
@@ -104,8 +103,8 @@ def observation_model(particle):
         dx = mu[0, 0] - particle.x # Get relative displacement between landmark and pose
         dy = mu[1, 0] - particle.y
         d_sq = dx**2 + dy**2 # Pythagorean theorem
-        d = math.sqrt(d_sq) # Get relative distance from vehicle
-        theta = pi_2_pi(math.atan2(dy, dx) - particle.theta) # Get relative angle of observation
+        d = np.sqrt(d_sq) # Get relative distance from vehicle
+        theta = pi_2_pi(np.arctan2(dy, dx) - particle.theta) # Get relative angle of observation
 
         particle.mu[i, 2] = d # Assign expected distance
         particle.mu[i, 3] = theta # Assign expected angle of observation
@@ -122,8 +121,8 @@ def law_of_cos(a, b, theta):
     :param theta: The measure of the angle in radians between the two sides
     :return: c, the length of the third side
     """
-    c_sq = a**2 + b**2 - 2*a*b * math.cos(theta)
-    c = math.sqrt(c_sq)
+    c_sq = a**2 + b**2 - 2*a*b * np.cos(theta)
+    c = np.sqrt(c_sq)
 
     return c
 
@@ -229,8 +228,8 @@ def motion_model(x, u):
                   [0, 0, 1.0]])
 
     # A 3x2 matrix to calculate new x, y, yaw given controls
-    B = np.array([[DT * math.cos(x[2, 0]), 0],
-                  [DT * math.sin(x[2, 0]), 0],
+    B = np.array([[DT * np.cos(x[2, 0]), 0],
+                  [DT * np.sin(x[2, 0]), 0],
                   [0.0, DT]])
 
     x = F @ x + B @ u # Formula: X = FX + BU
@@ -271,7 +270,7 @@ def pi_2_pi(angle):
     :param angle: Angle in radians
     :return: Returns the angle after ensuring it is under +/- PI radians
     """
-    return (angle + math.pi) % (2 * math.pi) - math.pi
+    return (angle + np.pi) % (2 * np.pi) - np.pi
 
 # STEP 2: UPDATE
 
@@ -301,8 +300,8 @@ def observation(xTrue, xd, u, data):
         # Calculate distance d between camera and landmark
         dx = data[i, 0] # X
         dy = data[i, 1] # Y
-        d = math.hypot(dx, dy) # Distance
-        angle = pi_2_pi(math.atan2(dy, dx)) # Angle
+        d = np.hypot(dx, dy) # Distance
+        angle = pi_2_pi(np.arctan2(dy, dx)) # Angle
         print('Observation angle: ' + str(angle))
         zi = np.array([d, angle]).reshape(2, 1) # The predicted measurement
         z = np.hstack((z, zi)) # Add prediction to stack of observations
@@ -383,8 +382,8 @@ def compute_weight(particle, z, Q_cov, lm_id):
         print("singular")
         return 1.0
 
-    num = math.exp(-0.5 * dz.T @ invS @ dz)
-    den = 2.0 * math.pi * math.sqrt(np.linalg.det(Qj))
+    num = np.exp(-0.5 * dz.T @ invS @ dz)
+    den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
 
     w = num / den
 
@@ -409,9 +408,9 @@ def compute_jacobians(particle, mu, sigma, Q_cov):
     dx = mu[0, 0] - particle.x
     dy = mu[1, 0] - particle.y
     d_sq = dx ** 2 + dy ** 2
-    d = math.sqrt(d_sq)
+    d = np.sqrt(d_sq)
 
-    z_hat = np.array([d, pi_2_pi(math.atan2(dy, dx) - particle.theta)]).reshape(2, 1)
+    z_hat = np.array([d, pi_2_pi(np.arctan2(dy, dx) - particle.theta)]).reshape(2, 1)
 
     Hv = np.array([[-dx / d, -dy / d, 0.0],
                    [dy / d_sq, -dx / d_sq, -1.0]])
@@ -439,8 +438,8 @@ def add_new_landmark(particle, z, Q_cov):
     r = z[0]
     b = z[1]
 
-    s = math.sin(pi_2_pi(particle.theta + b - math.pi/2))
-    c = math.cos(pi_2_pi(particle.theta + b - math.pi/2))
+    s = np.sin(pi_2_pi(particle.theta + b - np.pi/2))
+    c = np.cos(pi_2_pi(particle.theta + b - np.pi/2))
 
     # Add new lm to array
     particle.mu = np.vstack((particle.mu, [particle.x + r * c, particle.y + r * s, 0.0, 0.0]))
@@ -448,10 +447,10 @@ def add_new_landmark(particle, z, Q_cov):
     # covariance
     dx = r * c
     dy = r * s
-    d2 = dx**2 + dy**2
-    d = math.sqrt(d2) # Get distance
+    d_sq = dx**2 + dy**2
+    d = np.sqrt(d_sq) # Get distance
     Gz = np.array([[dx / d, dy / d],
-                   [-dy / d2, dx / d2]])
+                   [-dy / d_sq, dx / d_sq]])
     particle.sigma = np.vstack((particle.sigma, np.linalg.inv(Gz) @ Q_cov @ np.linalg.inv(Gz.T)))
 
     return particle
@@ -564,7 +563,7 @@ def resampling(particles):
     # have the number of useful particles become too small (i.e., do too
     # many particles have negligible weight)? NTH here is 2/3 the original
     # number of particles.
-    if n_eff < NTH:  # resampling
+    if n_eff.all() < NTH:  # resampling
         # generate a vector with the sum of all weights up to the ith particle
         # at index i in the vector
         w_cum = np.cumsum(pw) # Cumulative weight is the sum of all particle weights
@@ -810,10 +809,10 @@ class Listener(BaseListener):
             d = self.z[0, i] # Distance from vehicle
             theta = self.z[1, i] # Angle of observation
 
-            angle = (theta + yaw - math.pi/2)
+            angle = (theta + yaw - np.pi/2)
 
-            tx = d * math.cos(angle)
-            ty = d * math.sin(angle)
+            tx = d * np.cos(angle)
+            ty = d * np.sin(angle)
 
             plt.plot(x + tx, y + ty, "*k")
 
@@ -832,8 +831,8 @@ class Listener(BaseListener):
             #         d = lm[2]
             #         theta = lm[3]
             #         angle = theta + particle.theta
-            #         tx = d * math.cos(angle)
-            #         ty = d * math.sin(angle)
+            #         tx = d * np.cos(angle)
+            #         ty = d * np.sin(angle)
 
             #         plt.plot(x + tx, y + ty, "xg")                    
 
