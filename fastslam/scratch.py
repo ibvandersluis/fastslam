@@ -25,13 +25,7 @@ from geometry_msgs.msg import Point, Twist, Vector3
 
 
 def fastslam():
-    predict()
-    update()
-    resample()
 
-def predict():
-    # For all particles:
-    # Odometry: xt given from motion_model(x, u)
     # Make measurement prediction
     # Calculate H (jacobian)
     # Calculate Q (measurement covariance)
@@ -57,6 +51,14 @@ def predict():
             # If counter < 0, remove
     # Resample particles M with probability derived from weight
     # Return new particles
+
+    predict()
+    update()
+    resample()
+
+def predict():
+    # For all particles:
+    # Odometry: xt given from motion_model(x, u)
 
 
 def update():
