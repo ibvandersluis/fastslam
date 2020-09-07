@@ -12,15 +12,15 @@ If you are interested in learning more about SLAM, here are some of the resource
 - [**_Bayesian Filtering for Location Estimation_**](http://www.irisa.fr/aspi/legland/ref/fox03a.pdf) -- Dieter Fox et al., 2003
 - [**_Simultaneous Localization and Mapping (SLAM) Part I: The Essential Algorithms_**](https://people.eecs.berkeley.edu/~pabbeel/cs287-fa09/readings/Durrant-Whyte_Bailey_SLAM-tutorial-I.pdf) -- Hugh Durrant-Whyte & Tim Bailey, 2006
 - [**_Simultaneous Localization and Mapping (SLAM) Part II: State of the Art_**](https://pdfs.semanticscholar.org/27d4/6db7ed4e96944080052b761c62102f26b23f.pdf) -- Hugh Durrant-Whyte & Tim Bailey, 2006
-- [**_FastSLAM: A Factored Solution to the Simultaneous Localization and Mapping Problem_**](http://robots.stanford.edu/papers/montemerlo.fastslam-tr.pdf) - Michael Montemerlo et. al., 2002
-- [**_FastSLAM 2.0: An Improved Particle Filtering Algorithm for Simultaneous Localization and Mapping that Provably Converges_**](http://robots.stanford.edu/papers/Montemerlo03a.pdf) - Michael Montemerlo et. al., 2003
+- [**_FastSLAM: A Factored Solution to the Simultaneous Localization and Mapping Problem_**](http://robots.stanford.edu/papers/montemerlo.fastslam-tr.pdf) - Michael Montemerlo et al., 2002
+- [**_FastSLAM 2.0: An Improved Particle Filtering Algorithm for Simultaneous Localization and Mapping that Provably Converges_**](http://robots.stanford.edu/papers/Montemerlo03a.pdf) - Michael Montemerlo et al., 2003
 
 #### Books
 - [**_Probabilistic Robotics_**](http://www.probabilistic-robotics.org/) -- Sebastian Thrun et al., 2006
 - [**_Introduction to Autonomous Mobile Robots_**](https://mitpress.mit.edu/books/introduction-autonomous-mobile-robots-second-edition) -- Roland Siegwart & Illah R. Nourbakhsh, 2004
 
 #### Webpages
-- [**_PythonRobotics_**](https://pythonrobotics.readthedocs.io/en/latest/getting_started.html) -- Atsushi Sakai et. al.
+- [**_PythonRobotics_**](https://pythonrobotics.readthedocs.io/en/latest/getting_started.html) -- Atsushi Sakai et al.
 
 #### Videos
 - Start with these
@@ -35,27 +35,56 @@ If you are interested in learning more about SLAM, here are some of the resource
 
 ## Requirements
 - Assumes an existing ROS 2 installation and workspace (Dashing or newer)
+    - [Install ROS 2 Dashing](https://index.ros.org/doc/ros2/Installation/Dashing/)
+    - [ROS 2 Tutorials: Creating a Workspace](https://index.ros.org/doc/ros2/Tutorials/Workspace/Creating-A-Workspace/)
 
 ## Installation
 
 1. Clone this repository into the `/src` directory of your ROS 2 workspace
+
+```bash
+git clone https://github.com/ibvandersluis/fastslam.git
+```
+
 2. Also clone dependent packages
-    - `git clone https://gitlab.com/obr-a/integration/ads_dv_msgs.git` [link](https://gitlab.com/obr-a/integration/ads_dv_msgs)
-    - `git clone https://gitlab.com/obr-a/integration/obr_msgs.git` [link](https://gitlab.com/obr-a/integration/obr_msgs)
-    - `git clone https://gitlab.com/obr-a/integration/helpers.git` [link](https://gitlab.com/obr-a/integration/helpers)
+
+```bash
+git clone https://gitlab.com/obr-a/integration/ads_dv_msgs.git
+git clone https://gitlab.com/obr-a/integration/obr_msgs.git
+git clone https://gitlab.com/obr-a/integration/helpers.git
+```
+
 3. Open a terminal and source your ROS installation
-    - `source /opt/ros/dashing/setup.bash`
+
+```bash
+source /opt/ros/dashing/setup.bash
+```
+
 4. Build
-    - `colcon build --symlink-install`
+
+```bash
+colcon build --symlink-install
+```
 
 ## Usage
 After you have run `colcon build`:
 1. Open 2 new tabs in your terminal and source the workspace in each
-    - `. install/setup.bash`
+
+```bash
+. install/setup.bash
+```
+
 2. In one of the new tabs play the rosbag
-    - `ros2 bag play <path_to_rosbag>`
+
+```bash
+ros2 bag play <path_to_rosbag>
+```
+
 3. In the other new tab run the FastSLAM node
-    - `ros2 run fastslam main`
+
+```bash
+ros2 run fastslam main
+```
 
 ## Authors
 
