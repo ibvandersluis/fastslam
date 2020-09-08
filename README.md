@@ -7,7 +7,6 @@ This is a Python implementation of the FastSLAM algorithm for Simultaneous Local
 ## Requirements
 - Assumes an existing ROS 2 installation (Dashing or newer). If you are using a distro other than Dashing, replace 'dashing' in the following terminal commands with your distro name.
     - [Install ROS 2 Dashing](https://index.ros.org/doc/ros2/Installation/Dashing/)
-    - [ROS 2 Tutorials: Creating a Workspace](https://index.ros.org/doc/ros2/Tutorials/Workspace/Creating-A-Workspace/)
 - This package also uses the following Python3 libraries:
     - NumPy
     - SciPy

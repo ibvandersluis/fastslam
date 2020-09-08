@@ -61,8 +61,7 @@ ADDS = 0
     # dz: the difference between expected observation and actual observation (z - z_hat)
 
     # xEst: the estimated true state vector of the vehicle
-    # Hv:
-    # Hf: 
+    # H: Jacobian matrix
 
     # d: distance (metres)
     # d_sq: distance squared
@@ -70,7 +69,7 @@ ADDS = 0
     # dx: delta x (change in x)
     # dy: delta y (change in y)
 
-    # Particles
+    # Particles: a single hypothesis regarding the pose and landmark locations
         # Particle.w: the weight of the particle
         # Particle.x: the x position
         # Particle.y: the y position
@@ -78,14 +77,15 @@ ADDS = 0
         # Particle.mu: an array of EKF mean values as x-y coordinates, one for each landmark
         # Particle.sigma: an array of 2x2 covariance matrices for landmark EKFs
 
+
 # Equations
 
-# Calculate Qj (measurement covariance)
-    # Qj = H @ sigma @ H.T + Q
+    # Calculate Qj (measurement covariance)
+        # Qj = H @ sigma @ H.T + Q
 
-# Calculate weight
-    # num = np.exp(-0.5 * dz.T @ invQ @ dz)
-    # den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
+    # Calculate weight
+        # num = np.exp(-0.5 * dz.T @ invQ @ dz)
+        # den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
 
     # w = num / den
 
@@ -276,7 +276,7 @@ def predict_particles(particles, u):
         particles[i].y = px[1, 0] # Replace particle y pos with predicted value
         particles[i].theta = px[2, 0] # Replace particle yaw with predicted value
 
-        particles[i] = observation_model(particles[i]) # Calculate expected landmark observations
+        # particles[i] = observation_model(particles[i]) # Calculate expected landmark observations
 
     return particles
 
@@ -300,9 +300,9 @@ def observation(xTrue, xd, u, data):
     :param u: Control vector: linear and angular velocity
     :param data: The landmarks seen by the camera
     :return:
-        xTrue - the true state
-        z - the observation
-        xd - dead reckoning state
+        xTrue - The 'true' state
+        z - The observation
+        xd - State with noise
         ud - Input with noise
     """
     print('MAKING OBSERVATION')
@@ -342,32 +342,44 @@ def update_with_observation(particles, z):
     """
     print('UPDATING WITH OBSERVATION')
 
-    norm = scipy.stats.norm(loc=0.0, scale=1.5) # Generate normal distribution
-    threshold = norm.ppf(0.99) # Past this distance gives under 1% probability
+    threshold = 0.004 # Past this distance gives under 1% probability
 
     # Get standard deviation for each landmark
 
-    # For each landmark in the observation
+    # For each landmark observed
     for iz in range(len(z[0, :])):
         # For each particle
         a = time.time()
         for ip in range(N_PARTICLE):
             m = time.time()
-            match = False
-            # For each landmark
-            for lm in range(len(particles[ip].mu[: , 0])):
-                j = time.time()
-                d = law_of_cos(z[0, iz], particles[ip].mu[lm, 2], z[1, iz] - particles[ip].mu[lm, 3])
-                k = time.time()
-                print('Calculated d in ' + str(k-j) + 's')
-                if (d <= threshold):
-                    w = compute_weight(particles[ip], z[:, iz], Q, lm)
-                    particles[ip].w *= w
-                    particles[ip] = update_landmark(particles[ip], z[:, iz], Q, lm)
-                    match = True
-                    break
-            if (match == False):
+            c = np.zeros([0, 1]) # Array for likelihoods
+            # For each known landmark
+            if (len(particles[ip].mu[:, 0]) == 0):
                 particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
+            else:
+                for lm in range(len(particles[ip].mu[:, 0])):
+                    j = time.time()
+                    # Calculate preducted observation
+                    # Compute Jacobian matrix H
+                    # Calculate covariance Qj
+                    # Calculate likelihood wj
+                    wj = compute_weight(particles[ip], z[:, iz], Q, lm)
+                    # Append to c[]
+                    print(wj)
+                    c = np.append(c, wj)
+                    k = time.time()
+                    print('Calculated wj in ' + str(k-j) + 's')
+                # Get max likelihood
+                print(c)
+                c_max = max(c)
+                # If max likelihood < threshold, add landmark to particle
+                if (c_max < threshold):
+                    particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
+                # Else, update the landmark with the max likelihood
+                else:
+                    cj = np.argmax(c_max)
+                    particles[ip].w *= c_max
+                    particles[ip] = update_landmark(particles[ip], z[:, iz], Q, cj)
             n = time.time()
             print('PARTICLE#' + str(ip) + ' took ' + str(n-m) + 's')
         b = time.time()
@@ -383,12 +395,13 @@ def compute_weight(particle, z, Q_cov, lm_id):
     :param z: An observation
     :param Q_cov: The measurement covariance
     :param lm_id: The ID of the landmark
-    :return: Returns particle weight
+    :return: Returns the likelihood wj for observation correspondence
     """
+    print('computing weight')
     # lm_id = int(z[2]) # Get landmark id from z
     mu = np.array(particle.mu[lm_id, 0:2]).reshape(2, 1) # The pose of a landmark from a particle
     sigma = np.array(particle.sigma[2 * lm_id:2 * lm_id + 2]) # Landmark covariance matrix
-    z_hat, Hv, Hf, Qj = compute_jacobians(particle, mu, sigma, Q_cov)
+    z_hat, H, Qj = compute_jacobians(particle, mu, sigma, Q_cov)
 
     dz = z[0:2].reshape(2, 1) - z_hat
     dz[1, 0] = pi_2_pi(dz[1, 0])
@@ -402,9 +415,9 @@ def compute_weight(particle, z, Q_cov, lm_id):
     num = np.exp(-0.5 * dz.T @ invQ @ dz)
     den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
 
-    w = num / den
-
-    return w
+    wj = num / den
+    print(wj)
+    return wj
 
 def compute_jacobians(particle, mu, sigma, Q_cov):
     """
@@ -416,8 +429,7 @@ def compute_jacobians(particle, mu, sigma, Q_cov):
     :param Q_cov: A covariance matrix of process noise
     :return:
         z_hat - The relative distance and angle to the landmark
-        Hv -
-        Hf - 
+        H - 
         Qj - The covariance of measurement noise at time t
     """
 
@@ -429,15 +441,12 @@ def compute_jacobians(particle, mu, sigma, Q_cov):
 
     z_hat = np.array([d, pi_2_pi(np.arctan2(dy, dx) - particle.theta)]).reshape(2, 1)
 
-    Hv = np.array([[-dx / d, -dy / d, 0.0],
-                   [dy / d_sq, -dx / d_sq, -1.0]])
-
-    Hf = np.array([[dx / d, dy / d],
+    H = np.array([[dx / d, dy / d],
                    [-dy / d_sq, dx / d_sq]])
 
-    Qj = Hf @ sigma @ Hf.T + Q_cov
+    Qj = H @ sigma @ H.T + Q_cov
 
-    return z_hat, Hv, Hf, Qj
+    return z_hat, H, Qj
 
 
 def add_new_landmark(particle, z, Q_cov):
@@ -472,7 +481,7 @@ def add_new_landmark(particle, z, Q_cov):
 
     return particle
 
-def update_kf_with_cholesky(mu, sigma, dz, Q_cov, Hf):
+def update_kf_with_cholesky(mu, sigma, dz, Q_cov, H):
     """
     Update Kalman filter
 
@@ -480,13 +489,13 @@ def update_kf_with_cholesky(mu, sigma, dz, Q_cov, Hf):
     :param sigma: The 2x2 covariance of a landmark EKF
     :param dz: The difference between the actual and expected observation
     :param Q_cov: A covariance matrix of process noise
-    :param Hf:
+    :param H: Jacobian matrix
     :return:
         mu - New EKF mean as x-y coordinates
         sigma - New EKF covariance matrix
     """
-    PHt = sigma @ Hf.T
-    S = Hf @ PHt + Q_cov
+    PHt = sigma @ H.T
+    S = H @ PHt + Q_cov
 
     S = (S + S.T) * 0.5
     s_chol = np.linalg.cholesky(S).T
@@ -515,12 +524,12 @@ def update_landmark(particle, z, Q_cov, lm_id):
     mu = np.array(particle.mu[lm_id, 0:2]).reshape(2, 1)
     sigma = np.array(particle.sigma[2 * lm_id:2 * lm_id + 2, :]) # All columns from this set of 2 rows
 
-    z_hat, Hv, Hf, Qj = compute_jacobians(particle, mu, sigma, Q)
+    z_hat, H, Qj = compute_jacobians(particle, mu, sigma, Q)
 
     dz = z[0:2].reshape(2, 1) - z_hat
     dz[1, 0] = pi_2_pi(dz[1, 0])
 
-    mu, sigma = update_kf_with_cholesky(mu, sigma, dz, Q_cov, Hf)
+    mu, sigma = update_kf_with_cholesky(mu, sigma, dz, Q_cov, H)
 
     particle.mu[lm_id, 0:2] = mu.T
     particle.sigma[2 * lm_id:2 * lm_id + 2, :] = sigma # Reassign new covariance matrix
