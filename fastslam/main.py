@@ -342,9 +342,7 @@ def update_with_observation(particles, z):
     """
     print('UPDATING WITH OBSERVATION')
 
-    threshold = 0.004 # Past this distance gives under 1% probability
-
-    # Get standard deviation for each landmark
+    threshold = 0.004 # Likelihood threshold for data association
 
     # For each landmark observed
     for iz in range(len(z[0, :])):
@@ -376,6 +374,39 @@ def update_with_observation(particles, z):
             print('PARTICLE#' + str(ip) + ' took ' + str(n-m) + 's')
         b = time.time()
         print('OBS#' + str(iz) + ' took ' + str(b-a) + 's')
+
+    """
+    # For each landmark observed
+    for iz in range(len(z[0, :])):
+        # For each particle
+        a = time.time()
+        for ip in range(N_PARTICLE):
+            m = time.time()
+            c = np.zeros([0, 1]) # Array for likelihoods
+            # For each known landmark
+            if (len(particles[ip].mu[:, 0]) == 0):
+                particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
+            else:
+                for lm in range(len(particles[ip].mu[:, 0])):
+                    # Calculate likelihood wj
+                    wj = compute_weight(particles[ip], z[:, iz], Q, lm)
+                    # Append to c[]
+                    c = np.append(c, wj)
+                # Get max likelihood
+                c_max = max(c)
+                # If max likelihood < threshold, add landmark to particle
+                if (c_max < threshold):
+                    particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
+                # Else, update the landmark with the max likelihood
+                else:
+                    cj = np.argmax(c_max)
+                    particles[ip].w *= c_max
+                    particles[ip] = update_landmark(particles[ip], z[:, iz], Q, cj)
+            n = time.time()
+            print('PARTICLE#' + str(ip) + ' took ' + str(n-m) + 's')
+        b = time.time()
+        print('OBS#' + str(iz) + ' took ' + str(b-a) + 's')
+    """
 
     return particles
 
@@ -420,20 +451,20 @@ def compute_jacobians(particle, mu, sigma, Q_cov):
     :param Q_cov: A covariance matrix of process noise
     :return:
         z_hat - The relative distance and angle to the landmark
-        H - 
+        H - The Jacobian matrix
         Qj - The covariance of measurement noise at time t
     """
 
     # Compute distance
     dx = mu[0, 0] - particle.x
     dy = mu[1, 0] - particle.y
-    d_sq = dx ** 2 + dy ** 2
+    d_sq = dx**2 + dy**2
     d = np.sqrt(d_sq)
 
     z_hat = np.array([d, pi_2_pi(np.arctan2(dy, dx) - particle.theta)]).reshape(2, 1)
 
     H = np.array([[dx / d, dy / d],
-                   [-dy / d_sq, dx / d_sq]])
+                  [-dy / d_sq, dx / d_sq]])
 
     Qj = H @ sigma @ H.T + Q_cov
 
