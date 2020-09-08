@@ -178,8 +178,8 @@ class Particle:
         self.x = 0.0 # X pos
         self.y = 0.0 # Y pos
         self.theta = 0.0 # Orientation
-        # Landmark array
-        self.mu = np.zeros((0, LM_SIZE + 2)) # Add space for expected distance and angle
+        # Landmark position array (the mean of the landmark EKF as x-y position)
+        self.mu = np.zeros((0, LM_SIZE))
         # Landmark position covariance array
         self.sigma = np.zeros((0, LM_SIZE))
 
@@ -358,19 +358,11 @@ def update_with_observation(particles, z):
                 particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
             else:
                 for lm in range(len(particles[ip].mu[:, 0])):
-                    j = time.time()
-                    # Calculate preducted observation
-                    # Compute Jacobian matrix H
-                    # Calculate covariance Qj
                     # Calculate likelihood wj
                     wj = compute_weight(particles[ip], z[:, iz], Q, lm)
                     # Append to c[]
-                    print(wj)
                     c = np.append(c, wj)
-                    k = time.time()
-                    print('Calculated wj in ' + str(k-j) + 's')
                 # Get max likelihood
-                print(c)
                 c_max = max(c)
                 # If max likelihood < threshold, add landmark to particle
                 if (c_max < threshold):
@@ -397,7 +389,6 @@ def compute_weight(particle, z, Q_cov, lm_id):
     :param lm_id: The ID of the landmark
     :return: Returns the likelihood wj for observation correspondence
     """
-    print('computing weight')
     # lm_id = int(z[2]) # Get landmark id from z
     mu = np.array(particle.mu[lm_id, 0:2]).reshape(2, 1) # The pose of a landmark from a particle
     sigma = np.array(particle.sigma[2 * lm_id:2 * lm_id + 2]) # Landmark covariance matrix
@@ -416,7 +407,7 @@ def compute_weight(particle, z, Q_cov, lm_id):
     den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
 
     wj = num / den
-    print(wj)
+    
     return wj
 
 def compute_jacobians(particle, mu, sigma, Q_cov):
@@ -468,7 +459,7 @@ def add_new_landmark(particle, z, Q_cov):
     c = np.cos(pi_2_pi(particle.theta + b - np.pi/2))
 
     # Add new lm to array
-    particle.mu = np.vstack((particle.mu, [particle.x + r * c, particle.y + r * s, 0.0, 0.0]))
+    particle.mu = np.vstack((particle.mu, [particle.x + r * c, particle.y + r * s]))
 
     # covariance
     dx = r * c
@@ -668,9 +659,7 @@ class Listener(BaseListener):
     def __init__(self):
         super().__init__('fastslam')
 
-        # State variables
-        self.x = None
-        self.y = None
+        # Control variables
         self.v = 0.0 # Velocity, m/s
         self.theta = 0.0 # Yaw rate, rad/s
 
@@ -761,9 +750,7 @@ class Listener(BaseListener):
                 f.write('--- Particle #' + str(pnum) + ':\n')
                 for i in range(len(particle.mu[:, 0])):
                     f.write('lm #' + str(i + 1) + ' -- x: ' + str(particle.mu[i, 0])
-                            + ', y: ' + str(particle.mu[i, 1]) + '\n'
-                            + '      -- d: ' + str(particle.mu[i, 2])
-                            + ', a: ' + str(particle.mu[i, 3]) + '\n')
+                            + ', y: ' + str(particle.mu[i, 1]) + '\n')
             f.write('PARTICLES ADDED: ' + str(ADDS) + '\n')
             f.write('PARTICLES UPDATED: ' + str(UPDATES) + '\n')
             ADDS = 0
@@ -773,8 +760,6 @@ class Listener(BaseListener):
 
         # Get state estimation
         self.xEst = calc_final_state(self.particles)
-        self.x = self.xEst[0, 0]
-        self.y = self.xEst[1, 0]
 
         # Boundary check
         self.x_state = self.xEst[0: STATE_SIZE]
