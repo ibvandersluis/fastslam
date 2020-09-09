@@ -143,10 +143,7 @@ def law_of_cos(a, b, theta):
 
     return c
 
-# --- CODE FROM PYTHON ROBOTICS / ATSUSHI SAKAI ---
-
-# Code mostly by Atsushi Sakai
-# Comments mostly my own
+# --- CODE ADAPTED FROM PYTHON ROBOTICS / ATSUSHI SAKAI ---
 
 # Python Robotics
 #   https://pythonrobotics.readthedocs.io/en/latest/
@@ -182,6 +179,8 @@ class Particle:
         self.mu = np.zeros((0, LM_SIZE))
         # Landmark position covariance array
         self.sigma = np.zeros((0, LM_SIZE))
+        # Counter to evaluate and remove false observations
+        self.i = np.zeros((0, 1))
 
 def fast_slam1(particles, u, z):
     """
@@ -311,17 +310,13 @@ def observation(xTrue, xd, u, data):
     xTrue = motion_model(xTrue, u)
 
     # Initialize np array for observed cones
-    z = np.zeros((2, 0))
-    # For each landmark
-    for i in range(len(data[:, 0])):
-        # Calculate distance d between camera and landmark
-        dx = data[i, 0] # X
-        dy = data[i, 1] # Y
-        d = np.hypot(dx, dy) # Distance
-        theta = pi_2_pi(np.arctan2(dy, dx)) # Angle
-        print('Observation angle: ' + str(theta))
-        zi = np.array([d, theta]).reshape(2, 1) # The predicted measurement
-        z = np.hstack((z, zi)) # Add prediction to stack of observations
+    z = np.zeros_like(data)
+    # For each landmark compute distance and angle
+    z[:, 0] = np.hypot(data[:, 0], data[:, 1])
+    z[:, 1] = pi_2_pi(np.arctan2(data[:, 1], data[:, 0]))
+
+    # Flip to match previous code. REMOVE AND UPDATE LATER!
+    z = z.T
 
     # Add noise to input
     ud1 = u[0, 0] + np.random.randn() * R_sim[0, 0] ** 0.5
