@@ -56,7 +56,7 @@ ADDS = 0
     # u: the control vector [linear velocity, angular velocity]
     # ud: controls with noise
 
-    # z: a set of observations zi, each containing a vector [distance, angle]
+    # z: a set of observations, each containing a vector [distance, angle]
     # z_hat: the predicted observation for a landmark
     # dz: the difference between expected observation and actual observation (z - z_hat)
 
@@ -315,9 +315,6 @@ def observation(xTrue, xd, u, data):
     z[:, 0] = np.hypot(data[:, 0], data[:, 1])
     z[:, 1] = pi_2_pi(np.arctan2(data[:, 1], data[:, 0]))
 
-    # Flip to match previous code. REMOVE AND UPDATE LATER!
-    z = z.T
-
     # Add noise to input
     ud1 = u[0, 0] + np.random.randn() * R_sim[0, 0] ** 0.5
     ud2 = u[1, 0] + np.random.randn() * R_sim[1, 1] ** 0.5 + OFFSET_YAW_RATE_NOISE
@@ -340,7 +337,7 @@ def update_with_observation(particles, z):
     threshold = 0.004 # Likelihood threshold for data association
 
     # For each landmark observed
-    for iz in range(len(z[0, :])):
+    for iz in range(len(z[:, 0])):
         # For each particle
         a = time.time()
         for ip in range(N_PARTICLE):
@@ -348,23 +345,23 @@ def update_with_observation(particles, z):
             c = np.zeros([0, 1]) # Array for likelihoods
             # For each known landmark
             if (len(particles[ip].mu[:, 0]) == 0):
-                particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
+                particles[ip] = add_new_landmark(particles[ip], z[iz, :], Q)
             else:
                 for lm in range(len(particles[ip].mu[:, 0])):
                     # Calculate likelihood wj
-                    wj = compute_weight(particles[ip], z[:, iz], Q, lm)
+                    wj = compute_weight(particles[ip], z[iz, :], Q, lm)
                     # Append to c[]
                     c = np.append(c, wj)
                 # Get max likelihood
                 c_max = max(c)
                 # If max likelihood < threshold, add landmark to particle
                 if (c_max < threshold):
-                    particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
+                    particles[ip] = add_new_landmark(particles[ip], z[iz, :], Q)
                 # Else, update the landmark with the max likelihood
                 else:
                     cj = np.argmax(c_max)
                     particles[ip].w *= c_max
-                    particles[ip] = update_landmark(particles[ip], z[:, iz], Q, cj)
+                    particles[ip] = update_landmark(particles[ip], z[iz, :], Q, cj)
             n = time.time()
             print('PARTICLE#' + str(ip) + ' took ' + str(n-m) + 's')
         b = time.time()
@@ -420,7 +417,7 @@ def compute_weight(particle, z, Q_cov, lm_id):
     sigma = np.array(particle.sigma[2 * lm_id:2 * lm_id + 2]) # Landmark covariance matrix
     z_hat, H, Qj = compute_jacobians(particle, mu, sigma, Q_cov)
 
-    dz = z[0:2].reshape(2, 1) - z_hat
+    dz = z.reshape(2, 1) - z_hat
     dz[1, 0] = pi_2_pi(dz[1, 0])
 
     try:
@@ -543,7 +540,7 @@ def update_landmark(particle, z, Q_cov, lm_id):
 
     z_hat, H, Qj = compute_jacobians(particle, mu, sigma, Q)
 
-    dz = z[0:2].reshape(2, 1) - z_hat
+    dz = z.reshape(2, 1) - z_hat
     dz[1, 0] = pi_2_pi(dz[1, 0])
 
     mu, sigma = update_kf_with_cholesky(mu, sigma, dz, Q_cov, H)
@@ -839,12 +836,12 @@ class Listener(BaseListener):
         # plt.plot(self.capture[:, 0] + self.xEst[0, 0], self.capture[:, 1] + self.xEst[1, 0], "*k")
         
         # Convert z observations to absolute positions and plot
-        for i in range(len(self.z[0, :])):
+        for i in range(len(self.z[:, 0])):
             x = self.xEst[0, 0] # X pos
             y = self.xEst[1, 0] # Y pos
             yaw = self.xEst[2, 0] # Orientation
-            d = self.z[0, i] # Distance from vehicle
-            theta = self.z[1, i] # Angle of observation
+            d = self.z[i, 0] # Distance from vehicle
+            theta = self.z[i, 1] # Angle of observation
 
             angle = (theta + yaw - np.pi/2)
 
