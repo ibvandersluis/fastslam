@@ -317,6 +317,17 @@ def update_with_observation(particles, z):
 
     threshold = 0.004 # Likelihood threshold for data association
 
+    for particle in particles:
+        z_hat = np.zeros_like(particle.mu)
+        dpos = particle.mu - particle.x[0:2, 0]
+        d_sq = dpos[:, 0]**2 + dpos[:, 1]**2
+        z_hat[:, 0] = np.sqrt(d_sq)
+        z_hat[:, 1] = pi_2_pi(np.arctan2(dpos[:, 1], dpos[:, 0]) - particle.x[2, 0])
+        
+        for iz in z:
+            dz = z_hat - iz
+            dz[:, 1] = pi_2_pi(dz[:, 1])
+
     # For each landmark observed
     for iz in range(len(z[:, 0])):
         # For each particle
