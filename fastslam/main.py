@@ -319,14 +319,82 @@ def update_with_observation(particles, z):
 
     for particle in particles:
         z_hat = np.zeros_like(particle.mu)
-        dpos = particle.mu - particle.x[0:2, 0]
-        d_sq = dpos[:, 0]**2 + dpos[:, 1]**2
-        z_hat[:, 0] = np.sqrt(d_sq)
-        z_hat[:, 1] = pi_2_pi(np.arctan2(dpos[:, 1], dpos[:, 0]) - particle.x[2, 0])
-        
-        for iz in z:
-            dz = z_hat - iz
-            dz[:, 1] = pi_2_pi(dz[:, 1])
+        if (z_hat.size == 0):
+            # Add landmarks
+            pass
+        else:
+            dpos = particle.mu - particle.x[0:2, 0]
+            d_sq = dpos[:, 0]**2 + dpos[:, 1]**2
+            d = np.sqrt(d_sq)
+
+
+
+            dpos_mod = np.flip(dpos, axis=1)
+            dpos_mod[:, 0] = -dpos_mod[:, 0]
+
+            H = np.array([dpos / d,
+                          dpos_mod/ d_sq])
+
+            Qj = H @ particle.sigma @ H.T + Q
+
+
+
+            z_hat[:, 0] = np.sqrt(d_sq)
+            z_hat[:, 1] = pi_2_pi(np.arctan2(dpos[:, 1], dpos[:, 0]) - particle.x[2, 0])
+
+            for iz in z:
+                dz = z_hat - iz
+                dz[:, 1] = pi_2_pi(dz[:, 1])
+
+                try:
+                    invQ = np.linalg.inv(Qj)
+                except np.linalg.linalg.LinAlgError:
+                    print("singular")
+                    return 1.0
+
+                num = np.exp(-0.5 * dz.T @ invQ @ dz)
+                den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
+
+                wj = num / den
+
+                c_max = max(wj)
+
+                if (c_max < threshold):
+                    # Add landmark
+                    pass
+                else:
+                    cj = np.argmax(wj)
+                    particle.w *= c_max
+                    # Update landmark
+
+            
+
+                """
+                mu = np.array(particle.mu[lm_id]).reshape(2, 1) # The pose of a landmark from a particle
+                sigma = np.array(particle.sigma[2 * lm_id:2 * lm_id + 2]) # Landmark covariance matrix
+                z_hat, H, Qj = compute_jacobians(particle, mu, sigma, Q_cov)
+
+                dz = z.reshape(2, 1) - z_hat
+                dz[1, 0] = pi_2_pi(dz[1, 0])
+
+                try:
+                    invQ = np.linalg.inv(Qj)
+                except np.linalg.linalg.LinAlgError:
+                    print("singular")
+                    return 1.0
+
+                num = np.exp(-0.5 * dz.T @ invQ @ dz)
+                den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
+
+                wj = num / den
+
+
+                H = np.array([[dx / d, dy / d],
+                              [-dy / d_sq, dx / d_sq]])
+
+                Qj = H @ sigma @ H.T + Q_cov
+
+                """
 
     # For each landmark observed
     for iz in range(len(z[:, 0])):
