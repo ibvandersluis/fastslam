@@ -369,7 +369,7 @@ def update_with_observation(particles, z):
                     particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
                 # Else, update the landmark with the max likelihood
                 else:
-                    cj = np.argmax(c_max)
+                    cj = np.argmax(c)
                     particles[ip].w *= c_max
                     particles[ip] = update_landmark(particles[ip], z[:, iz], Q, cj)
             n = time.time()
