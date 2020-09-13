@@ -175,7 +175,7 @@ class Particle:
         self.w = 1.0 / N_PARTICLE # Particle weight
         self.x = np.zeros((3, 1)) # State vector [x, y, theta]
         self.mu = np.zeros((0, LM_SIZE)) # Landmark position array (the mean of the landmark EKF as x-y position)
-        self.sigma = np.zeros((0, LM_SIZE)) # Landmark position covariance array
+        self.sigma = np.zeros((0, LM_SIZE, LM_SIZE)) # Landmark position covariance array
         self.i = np.zeros((0, 1)) # Counter to evaluate and remove false observations
 
 def fast_slam1(particles, u, z):
@@ -327,23 +327,23 @@ def update_with_observation(particles, z):
             d_sq = dpos[:, 0]**2 + dpos[:, 1]**2
             d = np.sqrt(d_sq)
 
+            # Calculate series of H 2x2 Jacobian matrices after the formula
+            # H = np.array([[dx / d, dy / d],
+            #               [-dy / d_sq, dx / d_sq]])
+            dpos_mod = np.flip(dpos, axis=1) # Reverse dpos column order
+            dpos_mod[:, 0] = -dpos_mod[:, 0] # Negate dy column
+            Ha = dpos/np.vstack(d) # Calculate [dx / d, dy / d]
+            Hb = dpos_mod/np.vstack(d_sq) # Calculate [-dy / d_sq, dx / d_sq]
+            H = np.vstack((zip(Ha, Hb))) # Weave together
+            H.reshape(d.size, 2, 2) # Make 3D
 
-
-            dpos_mod = np.flip(dpos, axis=1)
-            dpos_mod[:, 0] = -dpos_mod[:, 0]
-
-            H = np.array([dpos / d,
-                          dpos_mod/ d_sq])
-
-            Qj = H @ particle.sigma @ H.T + Q
-
-
+            Qj = H @ particle.sigma @ H.transpose((0, 2, 1)) + Q
 
             z_hat[:, 0] = np.sqrt(d_sq)
             z_hat[:, 1] = pi_2_pi(np.arctan2(dpos[:, 1], dpos[:, 0]) - particle.x[2, 0])
 
-            for iz in z:
-                dz = z_hat - iz
+            for iz in range(len(z[:, 0])):
+                dz = z_hat - z[iz]
                 dz[:, 1] = pi_2_pi(dz[:, 1])
 
                 try:
