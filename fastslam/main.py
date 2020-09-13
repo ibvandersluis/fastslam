@@ -318,11 +318,43 @@ def update_with_observation(particles, z):
     threshold = 0.004 # Likelihood threshold for data association
 
     for particle in particles:
-        z_hat = np.zeros_like(particle.mu)
-        if (z_hat.size == 0):
-            # Add landmarks
-            pass
+        if (particle.mu.size == 0):
+            # Add all landmarks
+            s = np.sin(pi_2_pi(particle.x[2, 0] + z[:, 1] - np.pi/2))
+            c = np.cos(pi_2_pi(particle.x[2, 0] + z[:, 1] - np.pi/2))
+
+            print(z.shape)
+            print(particle.mu.shape)
+
+            # Add new lm to array
+            # particle.mu = np.vstack((particle.mu, [particle.x[0, 0] + r * c, particle.x[1, 0] + r * s]))
+            particle.mu = np.array([particle.x[0, 0] + z[:, 0] * c, particle.x[1, 0] + z[:, 0] * s]).T
+
+            # Distance values
+            dpos = np.zeros_like(z)
+            dpos[:, 0] = z[:, 0] * c
+            dpos[:, 1] = z[:, 0] * s
+            d_sq = dpos[:, 0]**2 + dpos[:, 1]**2
+            d = np.sqrt(d_sq)
+
+            # Calculate series of H 2x2 Jacobian matrices after the formula
+            # H = np.array([[dx / d, dy / d],
+            #               [-dy / d_sq, dx / d_sq]])
+            dpos_mod = np.flip(dpos, axis=1) # Reverse dpos column order
+            dpos_mod[:, 0] = -dpos_mod[:, 0] # Negate dy column
+            Ha = dpos/np.vstack(d) # Calculate [dx / d, dy / d]
+            Hb = dpos_mod/np.vstack(d_sq) # Calculate [-dy / d_sq, dx / d_sq]
+            H = np.vstack((zip(Ha, Hb))).reshape((d.size, 2, 2)) # Weave together
+            
+            print(H)
+            print(H.shape)
+            # Make Q 3D
+            Q_cov = np.zeros_like(H)
+            Q_cov += Q
+
+            particle.sigma = np.vstack((particle.sigma, np.linalg.inv(H) @ Q_cov @ np.linalg.inv(H.transpose((0, 2, 1)))))
         else:
+            z_hat = np.zeros_like(particle.mu)
             dpos = particle.mu - particle.x[0:2, 0]
             d_sq = dpos[:, 0]**2 + dpos[:, 1]**2
             d = np.sqrt(d_sq)
@@ -335,7 +367,8 @@ def update_with_observation(particles, z):
             Ha = dpos/np.vstack(d) # Calculate [dx / d, dy / d]
             Hb = dpos_mod/np.vstack(d_sq) # Calculate [-dy / d_sq, dx / d_sq]
             H = np.vstack((zip(Ha, Hb))) # Weave together
-            H.reshape(d.size, 2, 2) # Make 3D
+            H = H.reshape(d.size, 2, 2) # Make 3D
+
 
             Qj = H @ particle.sigma @ H.transpose((0, 2, 1)) + Q
 
@@ -345,29 +378,58 @@ def update_with_observation(particles, z):
             for iz in range(len(z[:, 0])):
                 dz = z_hat - z[iz]
                 dz[:, 1] = pi_2_pi(dz[:, 1])
+                dz = dz.reshape((len(dz[:, 0]), 2, 1))
 
                 try:
-                    invQ = np.linalg.inv(Qj)
+                    invQ = np.zeros_like(H)
+                    invQ += np.linalg.inv(Qj)
                 except np.linalg.linalg.LinAlgError:
                     print("singular")
                     return 1.0
 
-                num = np.exp(-0.5 * dz.T @ invQ @ dz)
+                print(invQ.shape)
+                print(invQ)
+                print(dz.transpose((0, 2, 1)).shape)
+                print(dz.transpose((0, 2, 1)))
+                print(dz.shape)
+                print(dz)
+
+                num = np.exp(-0.5 * dz.transpose((0, 2, 1)) @ invQ @ dz)
+                print(num)
                 den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
+                den = den.reshape((num.size, 1, 1))
+                print(den)
 
                 wj = num / den
 
-                c_max = max(wj)
+                print(wj)
+
+                c_max = np.max(wj)
 
                 if (c_max < threshold):
                     # Add landmark
-                    pass
-                else:
-                    cj = np.argmax(wj)
-                    particle.w *= c_max
-                    # Update landmark
+                    s = np.sin(pi_2_pi(particle.x[2, 0] + z[iz, 1] - np.pi/2))
+                    c = np.cos(pi_2_pi(particle.x[2, 0] + z[iz, 1] - np.pi/2))
 
-            
+                    particle.mu = np.vstack((particle.mu, [particle.x[0, 0] + z[iz, 0] * c, particle.x[1, 0] + z[iz, 0] * s]))
+
+                    dx = z[iz, 0] * c
+                    dy = z[iz, 0] * s
+                    d_sq = dx**2 + dy**2
+                    d = np.sqrt(d_sq) # Get distance
+                    H = np.array([[dx / d, dy / d],
+                                   [-dy / d_sq, dx / d_sq]])
+                    H = np.linalg.inv(H) @ Q @ np.linalg.inv(H.T)
+                    particle.sigma = np.vstack((particle.sigma, H.reshape((1, 2, 2))))
+                else:
+                    # Update landmark
+                    cj = np.argmax(wj)
+                    print(cj)
+                    particle.w *= c_max
+                    mu_temp, sigma_temp = update_kf_with_cholesky(particle.mu[cj], particle.sigma[cj],
+                                                                  dz[cj], Q, H[cj])
+                    particle.mu[cj] = mu_temp.T
+                    particle.sigma[cj] = sigma_temp # Replace covariance matrix
 
                 """
                 mu = np.array(particle.mu[lm_id]).reshape(2, 1) # The pose of a landmark from a particle
@@ -396,7 +458,7 @@ def update_with_observation(particles, z):
 
                 """
 
-    # For each landmark observed
+    """# For each landmark observed
     for iz in range(len(z[:, 0])):
         # For each particle
         a = time.time()
@@ -425,40 +487,7 @@ def update_with_observation(particles, z):
             n = time.time()
             print('PARTICLE#' + str(ip) + ' took ' + str(n-m) + 's')
         b = time.time()
-        print('OBS#' + str(iz) + ' took ' + str(b-a) + 's')
-
-    """
-    # For each landmark observed
-    for iz in range(len(z[0, :])):
-        # For each particle
-        a = time.time()
-        for ip in range(N_PARTICLE):
-            m = time.time()
-            c = np.zeros([0, 1]) # Array for likelihoods
-            # For each known landmark
-            if (len(particles[ip].mu[:, 0]) == 0):
-                particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
-            else:
-                for lm in range(len(particles[ip].mu[:, 0])):
-                    # Calculate likelihood wj
-                    wj = compute_weight(particles[ip], z[:, iz], Q, lm)
-                    # Append to c[]
-                    c = np.append(c, wj)
-                # Get max likelihood
-                c_max = max(c)
-                # If max likelihood < threshold, add landmark to particle
-                if (c_max < threshold):
-                    particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
-                # Else, update the landmark with the max likelihood
-                else:
-                    cj = np.argmax(c_max)
-                    particles[ip].w *= c_max
-                    particles[ip] = update_landmark(particles[ip], z[:, iz], Q, cj)
-            n = time.time()
-            print('PARTICLE#' + str(ip) + ' took ' + str(n-m) + 's')
-        b = time.time()
-        print('OBS#' + str(iz) + ' took ' + str(b-a) + 's')
-    """
+        print('OBS#' + str(iz) + ' took ' + str(b-a) + 's')"""
 
     return particles
 
@@ -576,6 +605,10 @@ def update_kf_with_cholesky(mu, sigma, dz, Q_cov, H):
     s_chol_inv = np.linalg.inv(s_chol)
     W1 = PHt @ s_chol_inv
     W = W1 @ s_chol_inv.T
+
+    print(mu.shape)
+    print(W.shape)
+    print(dz.shape)
 
     mu += W @ dz
     sigma -= W1 @ W1.T
