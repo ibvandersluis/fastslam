@@ -318,20 +318,17 @@ def update_with_observation(particles, z):
     for particle in particles:
         # If no landmarks exist yet, add all currently observed landmarks
         if (particle.mu.size == 0):
+            # Evaluate sine and cosine values for each observation in z
             s = np.sin(pi_2_pi(particle.x[2, 0] + z[:, 1] - np.pi/2))
             c = np.cos(pi_2_pi(particle.x[2, 0] + z[:, 1] - np.pi/2))
 
-            print(z.shape)
-            print(particle.mu.shape)
-
-            # Add new lm to array
-            # particle.mu = np.vstack((particle.mu, [particle.x[0, 0] + r * c, particle.x[1, 0] + r * s]))
+            # Add new landmark locations to mu
             particle.mu = np.array([particle.x[0, 0] + z[:, 0] * c, particle.x[1, 0] + z[:, 0] * s]).T
 
             # Distance values
             dpos = np.zeros_like(z)
-            dpos[:, 0] = z[:, 0] * c
-            dpos[:, 1] = z[:, 0] * s
+            dpos[:, 0] = z[:, 0] * c # dx
+            dpos[:, 1] = z[:, 0] * s # dy
             d_sq = dpos[:, 0]**2 + dpos[:, 1]**2
             d = np.sqrt(d_sq)
 
@@ -343,58 +340,53 @@ def update_with_observation(particles, z):
             Ha = dpos/np.vstack(d) # Calculate [dx / d, dy / d]
             Hb = dpos_mod/np.vstack(d_sq) # Calculate [-dy / d_sq, dx / d_sq]
             H = np.vstack((zip(Ha, Hb))).reshape((d.size, 2, 2)) # Weave together
-            
-            # Make Q 3D
-            Q_cov = np.zeros_like(H)
-            Q_cov += Q
 
-            particle.sigma = np.vstack((particle.sigma, np.linalg.inv(H) @ Q_cov @ np.linalg.inv(H.transpose((0, 2, 1)))))
+            particle.sigma = np.vstack((particle.sigma, np.linalg.inv(H) @ Q @ np.linalg.inv(H.transpose((0, 2, 1)))))
         else:
-            z_hat = np.zeros_like(particle.mu)
-            dpos = particle.mu - particle.x[0:2, 0]
+            z_hat = np.zeros_like(particle.mu) # Initialise matrix for expected observations
+            dpos = particle.mu - particle.x[0:2, 0] # Calculate dx and dy for each landmark
             d_sq = dpos[:, 0]**2 + dpos[:, 1]**2
-            d = np.sqrt(d_sq)
+            z_hat[:, 0] = np.sqrt(d_sq)
+            z_hat[:, 1] = pi_2_pi(np.arctan2(dpos[:, 1], dpos[:, 0]) - particle.x[2, 0])
 
             # Calculate series of H 2x2 Jacobian matrices after the formula
             # H = np.array([[dx / d, dy / d],
             #               [-dy / d_sq, dx / d_sq]])
             dpos_mod = np.flip(dpos, axis=1) # Reverse dpos column order
             dpos_mod[:, 0] = -dpos_mod[:, 0] # Negate dy column
-            Ha = dpos/np.vstack(d) # Calculate [dx / d, dy / d]
+            Ha = dpos/np.vstack((z_hat[:, 0])) # Calculate [dx / d, dy / d]
             Hb = dpos_mod/np.vstack(d_sq) # Calculate [-dy / d_sq, dx / d_sq]
             H = np.vstack((zip(Ha, Hb))) # Weave together
-            H = H.reshape(d.size, 2, 2) # Make 3D
+            H = H.reshape(d_sq.size, 2, 2) # Make 3D
 
+            Qj = H @ particle.sigma @ H.transpose((0, 2, 1)) + Q # Calculate covariances
 
-            Qj = H @ particle.sigma @ H.transpose((0, 2, 1)) + Q
+            try:
+                invQ = np.linalg.inv(Qj)
+            except np.linalg.linalg.LinAlgError:
+                print("singular")
+                return 1.0
 
-            z_hat[:, 0] = np.sqrt(d_sq)
-            z_hat[:, 1] = pi_2_pi(np.arctan2(dpos[:, 1], dpos[:, 0]) - particle.x[2, 0])
-
+            # For each cone observed, determine data association and add/update
             for iz in range(len(z[:, 0])):
-                dz = z_hat - z[iz]
+                dz = z_hat - z[iz] # Calculate difference between expectation and observation
                 dz[:, 1] = pi_2_pi(dz[:, 1])
-                dz = dz.reshape((len(dz[:, 0]), 2, 1))
-
-                try:
-                    invQ = np.linalg.inv(Qj)
-                except np.linalg.linalg.LinAlgError:
-                    print("singular")
-                    return 1.0
+                dz = dz.reshape((len(dz[:, 0]), 2, 1)) # reshape as 3D array of 2x1 vectors
 
                 num = np.exp(-0.5 * dz.transpose((0, 2, 1)) @ invQ @ dz)
-                den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
-                den = den.reshape((num.size, 1, 1))
+                den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj)).reshape((num.size, 1, 1))
 
-                wj = num / den
+                wj = num / den # Calculate likelihoods
 
-                c_max = np.max(wj)
+                c_max = np.max(wj) # Get max likelihood
 
+                # If the cone probably hasn't been seen before, add the landmark
                 if (c_max < threshold):
-                    # Add landmark
+                    # Calculate sine and cosine for the landmark
                     s = np.sin(pi_2_pi(particle.x[2, 0] + z[iz, 1] - np.pi/2))
                     c = np.cos(pi_2_pi(particle.x[2, 0] + z[iz, 1] - np.pi/2))
 
+                    # Add landmark location to mu
                     particle.mu = np.vstack((particle.mu, [particle.x[0, 0] + z[iz, 0] * c, particle.x[1, 0] + z[iz, 0] * s]))
 
                     dx = z[iz, 0] * c
@@ -405,167 +397,17 @@ def update_with_observation(particles, z):
                                    [-dy / d_sq, dx / d_sq]])
                     Hj = np.linalg.inv(Hj) @ Q @ np.linalg.inv(Hj.T)
                     particle.sigma = np.vstack((particle.sigma, Hj.reshape((1, 2, 2))))
+
+                # If the cone matches a previously seen landmark, update the EKF for that landmark
                 else:
-                    # Update landmark
-                    cj = np.argmax(wj)
-                    print(cj)
-                    particle.w *= c_max
-                    print(dz[cj])
-                    mu_temp, sigma_temp = update_kf_with_cholesky(particle.mu[cj].reshape((2, 1)), particle.sigma[cj],
-                                                                  dz[cj], Q, H[cj])
-                    particle.mu[cj] = mu_temp.T
+                    cj = np.argmax(wj) # Get landmark ID for highest likelihood
+                    particle.w *= c_max # Adjust particle weight
+                    mu_temp, sigma_temp = update_kf_with_cholesky(particle.mu[cj].reshape((2, 1)),
+                                                                  particle.sigma[cj], dz[cj], Q, H[cj])
+                    particle.mu[cj] = mu_temp.T # Update landmark EKF mean
                     particle.sigma[cj] = sigma_temp # Replace covariance matrix
 
-                """
-                mu = np.array(particle.mu[lm_id]).reshape(2, 1) # The pose of a landmark from a particle
-                sigma = np.array(particle.sigma[2 * lm_id:2 * lm_id + 2]) # Landmark covariance matrix
-                z_hat, H, Qj = compute_jacobians(particle, mu, sigma, Q_cov)
-
-                dz = z.reshape(2, 1) - z_hat
-                dz[1, 0] = pi_2_pi(dz[1, 0])
-
-                try:
-                    invQ = np.linalg.inv(Qj)
-                except np.linalg.linalg.LinAlgError:
-                    print("singular")
-                    return 1.0
-
-                num = np.exp(-0.5 * dz.T @ invQ @ dz)
-                den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
-
-                wj = num / den
-
-
-                H = np.array([[dx / d, dy / d],
-                              [-dy / d_sq, dx / d_sq]])
-
-                Qj = H @ sigma @ H.T + Q_cov
-
-                """
-
-    """# For each landmark observed
-    for iz in range(len(z[:, 0])):
-        # For each particle
-        a = time.time()
-        for ip in range(N_PARTICLE):
-            m = time.time()
-            c = np.zeros([0, 1]) # Array for likelihoods
-            # For each known landmark
-            if (len(particles[ip].mu[:, 0]) == 0):
-                particles[ip] = add_new_landmark(particles[ip], z[iz, :], Q)
-            else:
-                for lm in range(len(particles[ip].mu[:, 0])):
-                    # Calculate likelihood wj
-                    wj = compute_weight(particles[ip], z[iz, :], Q, lm)
-                    # Append to c[]
-                    c = np.append(c, wj)
-                # Get max likelihood
-                c_max = max(c)
-                # If max likelihood < threshold, add landmark to particle
-                if (c_max < threshold):
-                    particles[ip] = add_new_landmark(particles[ip], z[iz, :], Q)
-                # Else, update the landmark with the max likelihood
-                else:
-                    cj = np.argmax(c_max)
-                    particles[ip].w *= c_max
-                    particles[ip] = update_landmark(particles[ip], z[iz, :], Q, cj)
-            n = time.time()
-            print('PARTICLE#' + str(ip) + ' took ' + str(n-m) + 's')
-        b = time.time()
-        print('OBS#' + str(iz) + ' took ' + str(b-a) + 's')"""
-
     return particles
-
-def compute_weight(particle, z, Q_cov, lm_id):
-    """
-    Compute weight of particles
-
-    :param particle: A particle
-    :param z: An observation
-    :param Q_cov: The measurement covariance
-    :param lm_id: The ID of the landmark
-    :return: Returns the likelihood wj for observation correspondence
-    """
-    # lm_id = int(z[2]) # Get landmark id from z
-    mu = np.array(particle.mu[lm_id]).reshape(2, 1) # The pose of a landmark from a particle
-    sigma = np.array(particle.sigma[2 * lm_id:2 * lm_id + 2]) # Landmark covariance matrix
-    z_hat, H, Qj = compute_jacobians(particle, mu, sigma, Q_cov)
-
-    dz = z.reshape(2, 1) - z_hat
-    dz[1, 0] = pi_2_pi(dz[1, 0])
-
-    try:
-        invQ = np.linalg.inv(Qj)
-    except np.linalg.linalg.LinAlgError:
-        print("singular")
-        return 1.0
-
-    num = np.exp(-0.5 * dz.T @ invQ @ dz)
-    den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
-
-    wj = num / den
-    
-    return wj
-
-def compute_jacobians(particle, mu, sigma, Q_cov):
-    """
-    Computes Jacobian matrices
-
-    :param particle: A particle
-    :param mu: The landmark location
-    :param sigma: The covariance matrix for the landmark
-    :param Q_cov: A covariance matrix of process noise
-    :return:
-        z_hat - The relative distance and angle to the landmark
-        H - The Jacobian matrix
-        Qj - The covariance of measurement noise at time t
-    """
-
-    # Compute distance
-    dx = mu[0, 0] - particle.x[0, 0]
-    dy = mu[1, 0] - particle.x[1, 0]
-    d_sq = dx**2 + dy**2
-    d = np.sqrt(d_sq)
-
-    z_hat = np.array([d, pi_2_pi(np.arctan2(dy, dx) - particle.x[2, 0])]).reshape(2, 1)
-
-    H = np.array([[dx / d, dy / d],
-                  [-dy / d_sq, dx / d_sq]])
-
-    Qj = H @ sigma @ H.T + Q_cov
-
-    return z_hat, H, Qj
-
-
-def add_new_landmark(particle, z, Q_cov):
-    """
-    Adds a new landmark to a particle
-
-    :param particle: A particle
-    :param z: An observation
-    :param Q_cov: A covariance matrix of process noise
-    :return: A particle
-    """
-
-    r = z[0] # Distance
-    b = z[1] # Angle
-
-    s = np.sin(pi_2_pi(particle.x[2, 0] + b - np.pi/2))
-    c = np.cos(pi_2_pi(particle.x[2, 0] + b - np.pi/2))
-
-    # Add new lm to array
-    particle.mu = np.vstack((particle.mu, [particle.x[0, 0] + r * c, particle.x[1, 0] + r * s]))
-
-    # covariance
-    dx = r * c
-    dy = r * s
-    d_sq = dx**2 + dy**2
-    d = np.sqrt(d_sq) # Get distance
-    Gz = np.array([[dx / d, dy / d],
-                   [-dy / d_sq, dx / d_sq]])
-    particle.sigma = np.vstack((particle.sigma, np.linalg.inv(Gz) @ Q_cov @ np.linalg.inv(Gz.T)))
-
-    return particle
 
 def update_kf_with_cholesky(mu, sigma, dz, Q_cov, H):
     """
@@ -597,32 +439,6 @@ def update_kf_with_cholesky(mu, sigma, dz, Q_cov, H):
     sigma -= W1 @ W1.T
 
     return mu, sigma
-
-def update_landmark(particle, z, Q_cov, lm_id):
-    """
-    Update a landmark
-
-    :param particle: A particle
-    :param z: An observation
-    :param Q_cov: A covariance matrix of process noise
-    :return: A particle
-    """
-
-    # lm_id = int(z[2])
-    mu = np.array(particle.mu[lm_id, 0:2]).reshape(2, 1)
-    sigma = np.array(particle.sigma[2 * lm_id:2 * lm_id + 2, :]) # All columns from this set of 2 rows
-
-    z_hat, H, Qj = compute_jacobians(particle, mu, sigma, Q)
-
-    dz = z.reshape(2, 1) - z_hat
-    dz[1, 0] = pi_2_pi(dz[1, 0])
-
-    mu, sigma = update_kf_with_cholesky(mu, sigma, dz, Q_cov, H)
-
-    particle.mu[lm_id, 0:2] = mu.T
-    particle.sigma[2 * lm_id:2 * lm_id + 2, :] = sigma # Reassign new covariance matrix
-
-    return particle
 
 # STEP 3: RESAMPLE
 
