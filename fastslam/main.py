@@ -45,8 +45,6 @@ LM_SIZE = 2  # LM state size [x, y]
 N_PARTICLE = 10  # number of particle
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 PARTICLE_ITERATION = 0 # n for the nth particle production
-UPDATES = 0
-ADDS = 0
 
 # Definition of variables
 
@@ -56,36 +54,38 @@ ADDS = 0
     # u: the control vector [linear velocity, angular velocity]
     # ud: controls with noise
 
-    # z: a set of observations zi, each containing a vector [distance, angle]
+    # z: a set of observations, each containing a vector [distance, angle]
     # z_hat: the predicted observation for a landmark
     # dz: the difference between expected observation and actual observation (z - z_hat)
 
     # xEst: the estimated true state vector of the vehicle
-    # Hv:
-    # Hf: 
+    # H: Jacobian matrix
 
     # d: distance (metres)
     # d_sq: distance squared
 
-    # dx: delta x (change in x)
-    # dy: delta y (change in y)
+    # dx: delta x (change in x pos)
+    # dy: delta y (change in y pos)
+    # dxy: a vector [dx, dy]
 
-    # Particles
+    # Particles: a single hypothesis regarding the pose and landmark locations
         # Particle.w: the weight of the particle
-        # Particle.x: the x position
-        # Particle.y: the y position
-        # Particle.theta: the orientation in radians
+        # Particle.x: the robot's pose [x, y, theta]
+            # Particle.x[0, 0]: x value of pose
+            # Particle.x[1, 0]: y value of pose
+            # Particle.x[2, 0]: theta of pose
         # Particle.mu: an array of EKF mean values as x-y coordinates, one for each landmark
         # Particle.sigma: an array of 2x2 covariance matrices for landmark EKFs
 
+
 # Equations
 
-# Calculate Qj (measurement covariance)
-    # Qj = H @ sigma @ H.T + Q
+    # Calculate Qj (measurement covariance)
+        # Qj = H @ sigma @ H.T + Q
 
-# Calculate weight
-    # num = np.exp(-0.5 * dz.T @ invQ @ dz)
-    # den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
+    # Calculate weight
+        # num = np.exp(-0.5 * dz.T @ invQ @ dz)
+        # den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
 
     # w = num / den
 
@@ -117,11 +117,10 @@ def observation_model(particle):
     # Get expected observations for landmarks
     for i in range(len(particle.mu[:, 0])): # For each landmark in the particle
         mu = np.array(particle.mu[i, 0:2]).reshape(2, 1) # Let mu be the x, y values of the particle
-        dx = mu[0, 0] - particle.x # Get relative displacement between landmark and pose
-        dy = mu[1, 0] - particle.y
-        d_sq = dx**2 + dy**2 # Pythagorean theorem
+        dxy = mu - particle.x[0:2, 0] # Get relative displacement between landmark and pose
+        d_sq = np.sum(dxy**2) # Pythagorean theorem
         d = np.sqrt(d_sq) # Get relative distance from vehicle
-        theta = pi_2_pi(np.arctan2(dy, dx) - particle.theta) # Get relative angle of observation
+        theta = pi_2_pi(np.arctan2(dxy[1, 0], dxy[0, 0]) - particle.x[2, 0]) # Get relative angle of observation
 
         particle.mu[i, 2] = d # Assign expected distance
         particle.mu[i, 3] = theta # Assign expected angle of observation
@@ -143,10 +142,7 @@ def law_of_cos(a, b, theta):
 
     return c
 
-# --- CODE FROM PYTHON ROBOTICS / ATSUSHI SAKAI ---
-
-# Code mostly by Atsushi Sakai
-# Comments mostly my own
+# --- CODE ADAPTED FROM PYTHON ROBOTICS / ATSUSHI SAKAI ---
 
 # Python Robotics
 #   https://pythonrobotics.readthedocs.io/en/latest/
@@ -175,13 +171,10 @@ class Particle:
         print('Creating particle #' + str(PARTICLE_ITERATION))
         
         self.w = 1.0 / N_PARTICLE # Particle weight
-        self.x = 0.0 # X pos
-        self.y = 0.0 # Y pos
-        self.theta = 0.0 # Orientation
-        # Landmark array
-        self.mu = np.zeros((0, LM_SIZE + 2)) # Add space for expected distance and angle
-        # Landmark position covariance array
-        self.sigma = np.zeros((0, LM_SIZE))
+        self.x = np.zeros((3, 1)) # State vector [x, y, theta]
+        self.mu = np.zeros((0, LM_SIZE)) # Landmark position array (the mean of the landmark EKF as x-y position)
+        self.sigma = np.zeros((0, LM_SIZE, LM_SIZE)) # Landmark position covariance array
+        self.i = np.zeros((0, 1)) # Counter to evaluate and remove false observations
 
 def fast_slam1(particles, u, z):
     """
@@ -216,15 +209,9 @@ def calc_final_state(particles):
     xEst = np.zeros((STATE_SIZE, 1)) # Empty state vector for: x, y, yaw
 
     particles = normalize_weight(particles)
-    weight = 0.0
 
     for i in range(N_PARTICLE):
-        xEst[0, 0] += particles[i].w * particles[i].x
-        xEst[1, 0] += particles[i].w * particles[i].y
-        xEst[2, 0] += particles[i].w * particles[i].theta
-        weight += particles[i].w
-    
-    print('Weight sum: ' + str(weight))
+        xEst += particles[i].w * particles[i].x
 
     xEst[2, 0] = pi_2_pi(xEst[2, 0])
 
@@ -266,17 +253,8 @@ def predict_particles(particles, u):
     print('PREDICTING PARTICLES')
 
     for i in range(N_PARTICLE):
-        px = np.zeros((STATE_SIZE, 1)) # Creates 3x1 matrix of zeros for x, y, yaw
-        px[0, 0] = particles[i].x # Populates top place in matrix with current particle x position
-        px[1, 0] = particles[i].y # Populates mid place in matrix with current particle y position
-        px[2, 0] = particles[i].theta # Populates bot place in matrix with current particle yaw value
-        ud = u + (np.random.randn(1, 2) @ R).T  # add noise
-        px = motion_model(px, ud) # Compute predictions using motion model
-        particles[i].x = px[0, 0] # Replace particle x pos with predicted value
-        particles[i].y = px[1, 0] # Replace particle y pos with predicted value
-        particles[i].theta = px[2, 0] # Replace particle yaw with predicted value
-
-        particles[i] = observation_model(particles[i]) # Calculate expected landmark observations
+        ud = u + (np.random.randn(1, 2) @ R).T  # Add noise
+        particles[i].x = motion_model(particles[i].x, ud) # Run motion model
 
     return particles
 
@@ -300,9 +278,9 @@ def observation(xTrue, xd, u, data):
     :param u: Control vector: linear and angular velocity
     :param data: The landmarks seen by the camera
     :return:
-        xTrue - the true state
-        z - the observation
-        xd - dead reckoning state
+        xTrue - The 'true' state
+        z - The observation
+        xd - State with noise
         ud - Input with noise
     """
     print('MAKING OBSERVATION')
@@ -311,17 +289,10 @@ def observation(xTrue, xd, u, data):
     xTrue = motion_model(xTrue, u)
 
     # Initialize np array for observed cones
-    z = np.zeros((2, 0))
-    # For each landmark
-    for i in range(len(data[:, 0])):
-        # Calculate distance d between camera and landmark
-        dx = data[i, 0] # X
-        dy = data[i, 1] # Y
-        d = np.hypot(dx, dy) # Distance
-        theta = pi_2_pi(np.arctan2(dy, dx)) # Angle
-        print('Observation angle: ' + str(theta))
-        zi = np.array([d, theta]).reshape(2, 1) # The predicted measurement
-        z = np.hstack((z, zi)) # Add prediction to stack of observations
+    z = np.zeros_like(data)
+    # For each landmark compute distance and angle
+    z[:, 0] = np.hypot(data[:, 0], data[:, 1])
+    z[:, 1] = pi_2_pi(np.arctan2(data[:, 1], data[:, 0]))
 
     # Add noise to input
     ud1 = u[0, 0] + np.random.randn() * R_sim[0, 0] ** 0.5
@@ -342,137 +313,103 @@ def update_with_observation(particles, z):
     """
     print('UPDATING WITH OBSERVATION')
 
-    norm = scipy.stats.norm(loc=0.0, scale=1.5) # Generate normal distribution
-    threshold = norm.ppf(0.99) # Past this distance gives under 1% probability
+    threshold = 0.004 # Likelihood threshold for data association
 
-    # Get standard deviation for each landmark
+    for particle in particles:
+        # If no landmarks exist yet, add all currently observed landmarks
+        if (particle.mu.size == 0):
+            # Evaluate sine and cosine values for each observation in z
+            s = np.sin(pi_2_pi(particle.x[2, 0] + z[:, 1] - np.pi/2))
+            c = np.cos(pi_2_pi(particle.x[2, 0] + z[:, 1] - np.pi/2))
 
-    # For each landmark in the observation
-    for iz in range(len(z[0, :])):
-        # For each particle
-        a = time.time()
-        for ip in range(N_PARTICLE):
-            m = time.time()
-            match = False
-            # For each landmark
-            for lm in range(len(particles[ip].mu[: , 0])):
-                j = time.time()
-                d = law_of_cos(z[0, iz], particles[ip].mu[lm, 2], z[1, iz] - particles[ip].mu[lm, 3])
-                k = time.time()
-                print('Calculated d in ' + str(k-j) + 's')
-                if (d <= threshold):
-                    w = compute_weight(particles[ip], z[:, iz], Q, lm)
-                    particles[ip].w *= w
-                    particles[ip] = update_landmark(particles[ip], z[:, iz], Q, lm)
-                    match = True
-                    break
-            if (match == False):
-                particles[ip] = add_new_landmark(particles[ip], z[:, iz], Q)
-            n = time.time()
-            print('PARTICLE#' + str(ip) + ' took ' + str(n-m) + 's')
-        b = time.time()
-        print('OBS#' + str(iz) + ' took ' + str(b-a) + 's')
+            # Add new landmark locations to mu
+            particle.mu = np.array([particle.x[0, 0] + z[:, 0] * c, particle.x[1, 0] + z[:, 0] * s]).T
+
+            # Distance values
+            dpos = np.zeros_like(z)
+            dpos[:, 0] = z[:, 0] * c # dx
+            dpos[:, 1] = z[:, 0] * s # dy
+            d_sq = dpos[:, 0]**2 + dpos[:, 1]**2
+            d = np.sqrt(d_sq)
+
+            # Calculate series of H 2x2 Jacobian matrices after the formula
+            # H = np.array([[dx / d, dy / d],
+            #               [-dy / d_sq, dx / d_sq]])
+            dpos_mod = np.flip(dpos, axis=1) # Reverse dpos column order
+            dpos_mod[:, 0] = -dpos_mod[:, 0] # Negate dy column
+            Ha = dpos/np.vstack(d) # Calculate [dx / d, dy / d]
+            Hb = dpos_mod/np.vstack(d_sq) # Calculate [-dy / d_sq, dx / d_sq]
+            H = np.vstack((zip(Ha, Hb))).reshape((d.size, 2, 2)) # Weave together
+
+            particle.sigma = np.vstack((particle.sigma, np.linalg.inv(H) @ Q @ np.linalg.inv(H.transpose((0, 2, 1)))))
+        else:
+            z_hat = np.zeros_like(particle.mu) # Initialise matrix for expected observations
+            dpos = particle.mu - particle.x[0:2, 0] # Calculate dx and dy for each landmark
+            d_sq = dpos[:, 0]**2 + dpos[:, 1]**2
+            z_hat[:, 0] = np.sqrt(d_sq)
+            z_hat[:, 1] = pi_2_pi(np.arctan2(dpos[:, 1], dpos[:, 0]) - particle.x[2, 0])
+
+            # Calculate series of H 2x2 Jacobian matrices after the formula
+            # H = np.array([[dx / d, dy / d],
+            #               [-dy / d_sq, dx / d_sq]])
+            dpos_mod = np.flip(dpos, axis=1) # Reverse dpos column order
+            dpos_mod[:, 0] = -dpos_mod[:, 0] # Negate dy column
+            Ha = dpos/np.vstack((z_hat[:, 0])) # Calculate [dx / d, dy / d]
+            Hb = dpos_mod/np.vstack(d_sq) # Calculate [-dy / d_sq, dx / d_sq]
+            H = np.vstack((zip(Ha, Hb))) # Weave together
+            H = H.reshape(d_sq.size, 2, 2) # Make 3D
+
+            Qj = H @ particle.sigma @ H.transpose((0, 2, 1)) + Q # Calculate covariances
+
+            try:
+                invQ = np.linalg.inv(Qj)
+            except np.linalg.linalg.LinAlgError:
+                print("singular")
+                return 1.0
+
+            # For each cone observed, determine data association and add/update
+            for iz in range(len(z[:, 0])):
+                dz = z_hat - z[iz] # Calculate difference between expectation and observation
+                dz[:, 1] = pi_2_pi(dz[:, 1])
+                dz = dz.reshape((len(dz[:, 0]), 2, 1)) # reshape as 3D array of 2x1 vectors
+
+                num = np.exp(-0.5 * dz.transpose((0, 2, 1)) @ invQ @ dz)
+                den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj)).reshape((num.size, 1, 1))
+
+                wj = num / den # Calculate likelihoods
+
+                c_max = np.max(wj) # Get max likelihood
+
+                # If the cone probably hasn't been seen before, add the landmark
+                if (c_max < threshold):
+                    # Calculate sine and cosine for the landmark
+                    s = np.sin(pi_2_pi(particle.x[2, 0] + z[iz, 1] - np.pi/2))
+                    c = np.cos(pi_2_pi(particle.x[2, 0] + z[iz, 1] - np.pi/2))
+
+                    # Add landmark location to mu
+                    particle.mu = np.vstack((particle.mu, [particle.x[0, 0] + z[iz, 0] * c, particle.x[1, 0] + z[iz, 0] * s]))
+
+                    dx = z[iz, 0] * c
+                    dy = z[iz, 0] * s
+                    d_sq = dx**2 + dy**2
+                    d = np.sqrt(d_sq) # Get distance
+                    Hj = np.array([[dx / d, dy / d],
+                                   [-dy / d_sq, dx / d_sq]])
+                    Hj = np.linalg.inv(Hj) @ Q @ np.linalg.inv(Hj.T)
+                    particle.sigma = np.vstack((particle.sigma, Hj.reshape((1, 2, 2))))
+
+                # If the cone matches a previously seen landmark, update the EKF for that landmark
+                else:
+                    cj = np.argmax(wj) # Get landmark ID for highest likelihood
+                    particle.w *= c_max # Adjust particle weight
+                    mu_temp, sigma_temp = update_kf_with_cholesky(particle.mu[cj].reshape((2, 1)),
+                                                                  particle.sigma[cj], dz[cj], Q, H[cj])
+                    particle.mu[cj] = mu_temp.T # Update landmark EKF mean
+                    particle.sigma[cj] = sigma_temp # Replace covariance matrix
 
     return particles
 
-def compute_weight(particle, z, Q_cov, lm_id):
-    """
-    Compute weight of particles
-
-    :param particle: A particle
-    :param z: An observation
-    :param Q_cov: The measurement covariance
-    :param lm_id: The ID of the landmark
-    :return: Returns particle weight
-    """
-    # lm_id = int(z[2]) # Get landmark id from z
-    mu = np.array(particle.mu[lm_id, 0:2]).reshape(2, 1) # The pose of a landmark from a particle
-    sigma = np.array(particle.sigma[2 * lm_id:2 * lm_id + 2]) # Landmark covariance matrix
-    z_hat, Hv, Hf, Qj = compute_jacobians(particle, mu, sigma, Q_cov)
-
-    dz = z[0:2].reshape(2, 1) - z_hat
-    dz[1, 0] = pi_2_pi(dz[1, 0])
-
-    try:
-        invQ = np.linalg.inv(Qj)
-    except np.linalg.linalg.LinAlgError:
-        print("singular")
-        return 1.0
-
-    num = np.exp(-0.5 * dz.T @ invQ @ dz)
-    den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
-
-    w = num / den
-
-    return w
-
-def compute_jacobians(particle, mu, sigma, Q_cov):
-    """
-    Computes Jacobian matrices
-
-    :param particle: A particle
-    :param mu: The landmark location
-    :param sigma: The covariance matrix for the landmark
-    :param Q_cov: A covariance matrix of process noise
-    :return:
-        z_hat - The relative distance and angle to the landmark
-        Hv -
-        Hf - 
-        Qj - The covariance of measurement noise at time t
-    """
-
-    # Compute distance
-    dx = mu[0, 0] - particle.x
-    dy = mu[1, 0] - particle.y
-    d_sq = dx ** 2 + dy ** 2
-    d = np.sqrt(d_sq)
-
-    z_hat = np.array([d, pi_2_pi(np.arctan2(dy, dx) - particle.theta)]).reshape(2, 1)
-
-    Hv = np.array([[-dx / d, -dy / d, 0.0],
-                   [dy / d_sq, -dx / d_sq, -1.0]])
-
-    Hf = np.array([[dx / d, dy / d],
-                   [-dy / d_sq, dx / d_sq]])
-
-    Qj = Hf @ sigma @ Hf.T + Q_cov
-
-    return z_hat, Hv, Hf, Qj
-
-
-def add_new_landmark(particle, z, Q_cov):
-    """
-    Adds a new landmark to a particle
-
-    :param particle: A particle
-    :param z: An observation
-    :param Q_cov: A covariance matrix of process noise
-    :return: A particle
-    """
-    global ADDS
-    ADDS += 1
-
-    r = z[0] # Distance
-    b = z[1] # Angle
-
-    s = np.sin(pi_2_pi(particle.theta + b - np.pi/2))
-    c = np.cos(pi_2_pi(particle.theta + b - np.pi/2))
-
-    # Add new lm to array
-    particle.mu = np.vstack((particle.mu, [particle.x + r * c, particle.y + r * s, 0.0, 0.0]))
-
-    # covariance
-    dx = r * c
-    dy = r * s
-    d_sq = dx**2 + dy**2
-    d = np.sqrt(d_sq) # Get distance
-    Gz = np.array([[dx / d, dy / d],
-                   [-dy / d_sq, dx / d_sq]])
-    particle.sigma = np.vstack((particle.sigma, np.linalg.inv(Gz) @ Q_cov @ np.linalg.inv(Gz.T)))
-
-    return particle
-
-def update_kf_with_cholesky(mu, sigma, dz, Q_cov, Hf):
+def update_kf_with_cholesky(mu, sigma, dz, Q_cov, H):
     """
     Update Kalman filter
 
@@ -480,13 +417,13 @@ def update_kf_with_cholesky(mu, sigma, dz, Q_cov, Hf):
     :param sigma: The 2x2 covariance of a landmark EKF
     :param dz: The difference between the actual and expected observation
     :param Q_cov: A covariance matrix of process noise
-    :param Hf:
+    :param H: Jacobian matrix
     :return:
         mu - New EKF mean as x-y coordinates
         sigma - New EKF covariance matrix
     """
-    PHt = sigma @ Hf.T
-    S = Hf @ PHt + Q_cov
+    PHt = sigma @ H.T
+    S = H @ PHt + Q_cov
 
     S = (S + S.T) * 0.5
     s_chol = np.linalg.cholesky(S).T
@@ -494,38 +431,14 @@ def update_kf_with_cholesky(mu, sigma, dz, Q_cov, Hf):
     W1 = PHt @ s_chol_inv
     W = W1 @ s_chol_inv.T
 
+    print(mu.shape)
+    print(W.shape)
+    print(dz.shape)
+
     mu += W @ dz
     sigma -= W1 @ W1.T
 
     return mu, sigma
-
-def update_landmark(particle, z, Q_cov, lm_id):
-    """
-    Update a landmark
-
-    :param particle: A particle
-    :param z: An observation
-    :param Q_cov: A covariance matrix of process noise
-    :return: A particle
-    """
-    global UPDATES
-    UPDATES += 1
-
-    # lm_id = int(z[2])
-    mu = np.array(particle.mu[lm_id, 0:2]).reshape(2, 1)
-    sigma = np.array(particle.sigma[2 * lm_id:2 * lm_id + 2, :]) # All columns from this set of 2 rows
-
-    z_hat, Hv, Hf, Qj = compute_jacobians(particle, mu, sigma, Q)
-
-    dz = z[0:2].reshape(2, 1) - z_hat
-    dz[1, 0] = pi_2_pi(dz[1, 0])
-
-    mu, sigma = update_kf_with_cholesky(mu, sigma, dz, Q_cov, Hf)
-
-    particle.mu[lm_id, 0:2] = mu.T
-    particle.sigma[2 * lm_id:2 * lm_id + 2, :] = sigma # Reassign new covariance matrix
-
-    return particle
 
 # STEP 3: RESAMPLE
 
@@ -643,8 +556,6 @@ def resampling(particles):
         tmp_particles = particles[:]
         for i in range(len(inds)):
             particles[i].x = tmp_particles[inds[i]].x
-            particles[i].y = tmp_particles[inds[i]].y
-            particles[i].theta = tmp_particles[inds[i]].theta
             particles[i].mu = tmp_particles[inds[i]].mu[:, :]
             particles[i].sigma = tmp_particles[inds[i]].sigma[:, :]
             particles[i].w = 1.0 / N_PARTICLE
@@ -659,9 +570,7 @@ class Listener(BaseListener):
     def __init__(self):
         super().__init__('fastslam')
 
-        # State variables
-        self.x = None
-        self.y = None
+        # Control variables
         self.v = 0.0 # Velocity, m/s
         self.theta = 0.0 # Yaw rate, rad/s
 
@@ -717,9 +626,6 @@ class Listener(BaseListener):
         # end multiple subscribers
 
     def cones_callback(self, msg: ConeArray):
-        # Get global variables
-        global ADDS
-        global UPDATES
         # Place x y positions of cones into self.capture
         self.capture = np.array([[cone.x, cone.y] for cone in msg.cones])
         print(self.capture)
@@ -752,20 +658,12 @@ class Listener(BaseListener):
                 f.write('--- Particle #' + str(pnum) + ':\n')
                 for i in range(len(particle.mu[:, 0])):
                     f.write('lm #' + str(i + 1) + ' -- x: ' + str(particle.mu[i, 0])
-                            + ', y: ' + str(particle.mu[i, 1]) + '\n'
-                            + '      -- d: ' + str(particle.mu[i, 2])
-                            + ', a: ' + str(particle.mu[i, 3]) + '\n')
-            f.write('PARTICLES ADDED: ' + str(ADDS) + '\n')
-            f.write('PARTICLES UPDATED: ' + str(UPDATES) + '\n')
-            ADDS = 0
-            UPDATES = 0
+                            + ', y: ' + str(particle.mu[i, 1]) + '\n')
             f.close()
             self.count = 0
 
         # Get state estimation
         self.xEst = calc_final_state(self.particles)
-        self.x = self.xEst[0, 0]
-        self.y = self.xEst[1, 0]
 
         # Boundary check
         self.x_state = self.xEst[0: STATE_SIZE]
@@ -819,12 +717,12 @@ class Listener(BaseListener):
         # plt.plot(self.capture[:, 0] + self.xEst[0, 0], self.capture[:, 1] + self.xEst[1, 0], "*k")
         
         # Convert z observations to absolute positions and plot
-        for i in range(len(self.z[0, :])):
+        for i in range(len(self.z[:, 0])):
             x = self.xEst[0, 0] # X pos
             y = self.xEst[1, 0] # Y pos
             yaw = self.xEst[2, 0] # Orientation
-            d = self.z[0, i] # Distance from vehicle
-            theta = self.z[1, i] # Angle of observation
+            d = self.z[i, 0] # Distance from vehicle
+            theta = self.z[i, 1] # Angle of observation
 
             angle = (theta + yaw - np.pi/2)
 
@@ -837,7 +735,7 @@ class Listener(BaseListener):
 
         for i in range(N_PARTICLE):
             # Plot location estimates as red dots
-            plt.plot(self.particles[i].x, self.particles[i].y, ".r")
+            plt.plot(self.particles[i].x[0, 0], self.particles[i].x[1, 0], ".r")
             # Plot landmark estimates as blue X's
             plt.plot(self.particles[i].mu[:, 0], self.particles[i].mu[:, 1], "xb")
             # Plot expected observations of landmarks
