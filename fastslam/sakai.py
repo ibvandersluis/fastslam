@@ -423,6 +423,98 @@ def update_landmark(particle, z, Q_cov):
 
 # END OF CODE SNIPPET #
 
+# Modified Python Robotics functions
+def compute_weight(particle, z, Q_cov, lm_id):
+    """
+    Compute weight of particles
+
+    :param particle: A particle
+    :param z: An observation
+    :param Q_cov: The measurement covariance
+    :param lm_id: The ID of the landmark
+    :return: Returns the likelihood wj for observation correspondence
+    """
+    # lm_id = int(z[2]) # Get landmark id from z
+    mu = np.array(particle.mu[lm_id]).reshape(2, 1) # The pose of a landmark from a particle
+    sigma = np.array(particle.sigma[2 * lm_id:2 * lm_id + 2]) # Landmark covariance matrix
+    z_hat, H, Qj = compute_jacobians(particle, mu, sigma, Q_cov)
+
+    dz = z.reshape(2, 1) - z_hat
+    dz[1, 0] = pi_2_pi(dz[1, 0])
+
+    try:
+        invQ = np.linalg.inv(Qj)
+    except np.linalg.linalg.LinAlgError:
+        print("singular")
+        return 1.0
+
+    num = np.exp(-0.5 * dz.T @ invQ @ dz)
+    den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
+
+    wj = num / den
+    
+    return wj
+
+def compute_jacobians(particle, mu, sigma, Q_cov):
+    """
+    Computes Jacobian matrices
+
+    :param particle: A particle
+    :param mu: The landmark location
+    :param sigma: The covariance matrix for the landmark
+    :param Q_cov: A covariance matrix of process noise
+    :return:
+        z_hat - The relative distance and angle to the landmark
+        H - The Jacobian matrix
+        Qj - The covariance of measurement noise at time t
+    """
+
+    # Compute distance
+    dx = mu[0, 0] - particle.x[0, 0]
+    dy = mu[1, 0] - particle.x[1, 0]
+    d_sq = dx**2 + dy**2
+    d = np.sqrt(d_sq)
+
+    z_hat = np.array([d, pi_2_pi(np.arctan2(dy, dx) - particle.x[2, 0])]).reshape(2, 1)
+
+    H = np.array([[dx / d, dy / d],
+                  [-dy / d_sq, dx / d_sq]])
+
+    Qj = H @ sigma @ H.T + Q_cov
+
+    return z_hat, H, Qj
+
+
+def add_new_landmark(particle, z, Q_cov):
+    """
+    Adds a new landmark to a particle
+
+    :param particle: A particle
+    :param z: An observation
+    :param Q_cov: A covariance matrix of process noise
+    :return: A particle
+    """
+
+    r = z[0] # Distance
+    b = z[1] # Angle
+
+    s = np.sin(pi_2_pi(particle.x[2, 0] + b - np.pi/2))
+    c = np.cos(pi_2_pi(particle.x[2, 0] + b - np.pi/2))
+
+    # Add new lm to array
+    particle.mu = np.vstack((particle.mu, [particle.x[0, 0] + r * c, particle.x[1, 0] + r * s]))
+
+    # covariance
+    dx = r * c
+    dy = r * s
+    d_sq = dx**2 + dy**2
+    d = np.sqrt(d_sq) # Get distance
+    Gz = np.array([[dx / d, dy / d],
+                   [-dy / d_sq, dx / d_sq]])
+    particle.sigma = np.vstack((particle.sigma, np.linalg.inv(Gz) @ Q_cov @ np.linalg.inv(Gz.T)))
+
+    return particle
+
 
 
 # # Setting up the landmarks
@@ -706,3 +798,29 @@ def observation_model(particles, x, u, z):
         landmarks[lm, 1] = d * math.sin(dtheta)
 
     return landmarks
+
+    def update_landmark(particle, z, Q_cov, lm_id):
+    """
+    Update a landmark
+
+    :param particle: A particle
+    :param z: An observation
+    :param Q_cov: A covariance matrix of process noise
+    :return: A particle
+    """
+
+    # lm_id = int(z[2])
+    mu = np.array(particle.mu[lm_id, 0:2]).reshape(2, 1)
+    sigma = np.array(particle.sigma[2 * lm_id:2 * lm_id + 2, :]) # All columns from this set of 2 rows
+
+    z_hat, H, Qj = compute_jacobians(particle, mu, sigma, Q)
+
+    dz = z.reshape(2, 1) - z_hat
+    dz[1, 0] = pi_2_pi(dz[1, 0])
+
+    mu, sigma = update_kf_with_cholesky(mu, sigma, dz, Q_cov, H)
+
+    particle.mu[lm_id, 0:2] = mu.T
+    particle.sigma[2 * lm_id:2 * lm_id + 2, :] = sigma # Reassign new covariance matrix
+
+    return particle
