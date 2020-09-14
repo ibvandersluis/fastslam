@@ -39,6 +39,7 @@ R_sim = np.diag([0.5, np.deg2rad(10.0)]) ** 2
 OFFSET_YAW_RATE_NOISE = 0.01
 
 DT = 0.0  # time tick [s]
+DThist = [] # List of DTs
 M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
 STATE_SIZE = 3  # State size [x, y, yaw]
 LM_SIZE = 2  # LM state size [x, y]
@@ -89,59 +90,6 @@ PARTICLE_ITERATION = 0 # n for the nth particle production
 
     # w = num / den
 
-def point_angle_line(x, y, theta):
-    """
-    Plot a line from slope and intercept
-
-    :param rads: The angle of the line in radians
-    :param x: The x value of the point
-    :point y: The y value of the point
-    :return: Nothing
-    """
-    slope = np.tan(theta)
-    intercept = y - slope * x
-    axes = plt.gca()
-    x_vals = np.array(axes.get_xlim())
-    y_vals = intercept + slope * x_vals
-    plt.plot(x_vals, y_vals, '--')
-
-def observation_model(particle):
-    """
-    Compute predictions for expected observation of landmarks based on expected pose
-    of vehicle at next time step, computed by motion model
-
-    :param particle: A particle
-    :return: The particle with landmark predictions added to landmark array
-    """
-
-    # Get expected observations for landmarks
-    for i in range(len(particle.mu[:, 0])): # For each landmark in the particle
-        mu = np.array(particle.mu[i, 0:2]).reshape(2, 1) # Let mu be the x, y values of the particle
-        dxy = mu - particle.x[0:2, 0] # Get relative displacement between landmark and pose
-        d_sq = np.sum(dxy**2) # Pythagorean theorem
-        d = np.sqrt(d_sq) # Get relative distance from vehicle
-        theta = pi_2_pi(np.arctan2(dxy[1, 0], dxy[0, 0]) - particle.x[2, 0]) # Get relative angle of observation
-
-        particle.mu[i, 2] = d # Assign expected distance
-        particle.mu[i, 3] = theta # Assign expected angle of observation
-
-    return particle
-
-def law_of_cos(a, b, theta):
-    """
-    Returns the length of the side of a triangle opposite a corner,
-    given that corner's angle and the lengths of the adjacent sides.
-
-    :param a: The length of the first side of the triangle
-    :param b: The length of the second side of the triangle
-    :param theta: The measure of the angle in radians between the two sides
-    :return: c, the length of the third side
-    """
-    c_sq = a**2 + b**2 - 2*a*b * np.cos(theta)
-    c = np.sqrt(c_sq)
-
-    return c
-
 # --- CODE ADAPTED FROM PYTHON ROBOTICS / ATSUSHI SAKAI ---
 
 # Python Robotics
@@ -154,9 +102,6 @@ def law_of_cos(a, b, theta):
 #   https://github.com/AtsushiSakai
 # FastSLAM 1.0 code (starter code used here)
 #   https://github.com/AtsushiSakai/PythonRobotics/blob/master/SLAM/FastSLAM1/fast_slam1.py
-
-# STEP 1: PREDICT
-
 
 class Particle:
 
@@ -216,6 +161,8 @@ def calc_final_state(particles):
     xEst[2, 0] = pi_2_pi(xEst[2, 0])
 
     return xEst
+
+# STEP 1: PREDICT
 
 def motion_model(x, u):
     """
@@ -431,10 +378,6 @@ def update_kf_with_cholesky(mu, sigma, dz, Q_cov, H):
     W1 = PHt @ s_chol_inv
     W = W1 @ s_chol_inv.T
 
-    print(mu.shape)
-    print(W.shape)
-    print(dz.shape)
-
     mu += W @ dz
     sigma -= W1 @ W1.T
 
@@ -470,7 +413,6 @@ def resampling(particles):
     :param particles: An array of particles
     :return: An array of particles
     """
-    print('RESAMPLING')
 
     # Normalize weights
     particles = normalize_weight(particles)
@@ -480,79 +422,28 @@ def resampling(particles):
     for i in range(N_PARTICLE):
         pw.append(particles[i].w)
 
-    # this creates a 1-d array of the current particle weights
+    # Create a 1D array of the current particle weights
     pw = np.array(pw)
 
-    # each particle is given a resampling significance here of 1/weight^2
-    # (the 'effective sampling size') and the sum of these will be a measure
-    # of how many current particles are 'doing something useful'
-    # The matrix multiply below results in a single number out.
     n_eff = 1.0 / (pw @ pw.T)  # Effective particle number
-    # print(n_eff)
 
-    # have the number of useful particles become too small (i.e., do too
-    # many particles have negligible weight)? NTH here is 2/3 the original
-    # number of particles.
-    if n_eff.all() < NTH:  # resampling
-        # generate a vector with the sum of all weights up to the ith particle
-        # at index i in the vector
+    if n_eff.all() < NTH:  # Resampling
         w_cum = np.cumsum(pw) # Cumulative weight is the sum of all particle weights
-        # base will be a vector of length N_PARTICLE with a value for the
-        # ith element of i/N_PARTICLE if i is zero-indexed (i.e. you have
-        # i = 0, 1, 2, ... N_PARTICLE-1).
+
         base = np.cumsum(pw * 0.0 + 1 / N_PARTICLE) - 1 / N_PARTICLE
-        # resample ID adds some random offset to each element of the base array
-        # above. in practice, this means we get an array in units of 1/N_PARTICLE
-        # with each element offset by some random fraction of the distance
-        # between it and the next multiple of 1/N_PARTICLE. Note that
-        # the argument to the rand() function only indicates the shape
-        # of an array of random numbers (between 0 and 1) that it will
-        # create.
+        
         resample_id = base + np.random.rand(base.shape[0]) / N_PARTICLE
 
         inds = []
         ind = 0
-        # go through each particle
+
         for ip in range(N_PARTICLE):
-            # only generate a new particle for indices less than the number of
-            # particles already present. resample_id is intended to be a
-            # series of n-ile (as in quartile, octile, etc) bins with some
-            # random factor, indicating a total hypothetical number of
-            # particles thus far generated. w_cum, meanwhile, is supposed
-            # to represent the relative probability thus far of particles
-            # with indices less than ind having been regenerated. The machinery
-            # is starting with the lowest index, generating some number of
-            # particles approximately equal to the expected number that it
-            # would have had according to the cumulative statistics, then
-            # moving on to the next index. This is what the comparison of
-            # resample id[ip] with w_cum[ind] is achieving - setting the
-            # threshold at which the stepping machinery moves onto the next
-            # index to be generated, i.e. the next particle to be replicated.
-            # Note that the index ip here is almost irrelevant except as a
-            # way of keeping track of how many particles total have been
-            # (re)generated. 
-            # Some VERY deep and obscure algorithmic trickery is being
-            # employed here, this whole section will be VERY non-obvious to
-            # people who have not been exposed to a specific description (and
-            # probably proof) of the algorithm. Looks like something probably
-            # copied out of a paper.
+            
             while (ind < w_cum.shape[0] - 1) \
                     and (resample_id[ip] > w_cum[ind]):
                 ind += 1
-            # only one index will be generated for each original particle,
-            # its value will be some index of one of the particles, but there
-            # may (probably will) be duplicates of some indices
             inds.append(ind)
 
-        # each regenerated particle takes its values from the corresponding
-        # value of the particle that was indexed by the particular one in inds.
-        # for example, the original particle weight array might have looked like:
-        # [0.1, 0.3, 0.2, 0.3, 0.1]. Maybe then the generated indices went:
-        # [1, 1, 2, 3, 3] (the first and fifth were too low in weight, and
-        # the third was lower in weight than the second and fourth). These
-        # are the indices that will be selected for the next group of particles.
-        # so the system keeps the number of particles the same but redistributes
-        # them amongst the available entries by weight.
         tmp_particles = particles[:]
         for i in range(len(inds)):
             particles[i].x = tmp_particles[inds[i]].x
@@ -597,33 +488,20 @@ class Listener(BaseListener):
         self.count = 0
         self.debug = 0
 
-
         # Set publishers
         self.map_pub = self.create_publisher(ConeArray, '/mapping/map', 10)
         self.pose_pub = self.create_publisher(CarPos, '/mapping/position', 10)
-        self.cmd_pub = self.create_publisher(Twist, '/gazebo/cmd_vel', 10)
 
         # Set subscribers
         self.cones_sub = self.create_subscription(ConeArray, '/cones/positions', self.cones_callback, 10)
         self.gnss_sub = self.create_subscription(NavSatFix, '/peak_gps/gps', self.gnss_callback, 10)
         self.imu_sub = self.create_subscription(IMU, '/peak_gps/imu', self.imu_callback, 10)
         self.control_sub = self.create_subscription(Twist, '/gazebo/cmd_vel', self.control_callback, 10)
-        # self.wss_sub = self.create_subscription(WheelSpeeds, '/can/ws', self.wss_callback, 10)
 
         # gets links (all objects) from gazebo
         self.link_sub = self.create_subscription(LinkStates, "/gazebo/link_states", self.link_states_callback, 10)
 
         self.create_timer(1.0, self.timer_callback)
-
-        # multiple subscribers - not finished
-        # cones_sub = message_filters.Subscriber(self, type, '/cones/positions')
-        # odom_sub = message_filters.Subscriber(self, type, '/gazebo/odom')
-        # gps_sub = message_filters.Subscriber(self, type, '/gps/data')
-        # wss_sub = message_filters.Subscriber(self, type, '/wss')
-
-        # ts = message_filters.TimeSynchronizer([points_sub, boxes_sub], 100)
-        # ts.registerCallback(self.callback)
-        # end multiple subscribers
 
     def cones_callback(self, msg: ConeArray):
         # Place x y positions of cones into self.capture
@@ -631,10 +509,11 @@ class Listener(BaseListener):
         print(self.capture)
 
         # Set time
-        global DT
+        global DT, DThist
         DT = (self.get_clock().now().nanoseconds - self.timer_last)
         DT /= 1000000000 # Nanoseconds to seconds
         self.timer_last = self.get_clock().now().nanoseconds # Set timer_last as current nanoseconds
+        DThist.append(DT)
         print('DT -- ' + str(DT) + 's')
 
         # Get observation
@@ -659,6 +538,7 @@ class Listener(BaseListener):
                 for i in range(len(particle.mu[:, 0])):
                     f.write('lm #' + str(i + 1) + ' -- x: ' + str(particle.mu[i, 0])
                             + ', y: ' + str(particle.mu[i, 1]) + '\n')
+            f.write('DThist:\n' + str(DThist))
             f.close()
             self.count = 0
 
