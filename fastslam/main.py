@@ -45,8 +45,6 @@ LM_SIZE = 2  # LM state size [x, y]
 N_PARTICLE = 10  # number of particle
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 PARTICLE_ITERATION = 0 # n for the nth particle production
-UPDATES = 0
-ADDS = 0
 
 # Definition of variables
 
@@ -318,8 +316,8 @@ def update_with_observation(particles, z):
     threshold = 0.004 # Likelihood threshold for data association
 
     for particle in particles:
+        # If no landmarks exist yet, add all currently observed landmarks
         if (particle.mu.size == 0):
-            # Add all landmarks
             s = np.sin(pi_2_pi(particle.x[2, 0] + z[:, 1] - np.pi/2))
             c = np.cos(pi_2_pi(particle.x[2, 0] + z[:, 1] - np.pi/2))
 
@@ -346,8 +344,6 @@ def update_with_observation(particles, z):
             Hb = dpos_mod/np.vstack(d_sq) # Calculate [-dy / d_sq, dx / d_sq]
             H = np.vstack((zip(Ha, Hb))).reshape((d.size, 2, 2)) # Weave together
             
-            print(H)
-            print(H.shape)
             # Make Q 3D
             Q_cov = np.zeros_like(H)
             Q_cov += Q
@@ -381,28 +377,16 @@ def update_with_observation(particles, z):
                 dz = dz.reshape((len(dz[:, 0]), 2, 1))
 
                 try:
-                    invQ = np.zeros_like(H)
-                    invQ += np.linalg.inv(Qj)
+                    invQ = np.linalg.inv(Qj)
                 except np.linalg.linalg.LinAlgError:
                     print("singular")
                     return 1.0
 
-                print(invQ.shape)
-                print(invQ)
-                print(dz.transpose((0, 2, 1)).shape)
-                print(dz.transpose((0, 2, 1)))
-                print(dz.shape)
-                print(dz)
-
                 num = np.exp(-0.5 * dz.transpose((0, 2, 1)) @ invQ @ dz)
-                print(num)
                 den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
                 den = den.reshape((num.size, 1, 1))
-                print(den)
 
                 wj = num / den
-
-                print(wj)
 
                 c_max = np.max(wj)
 
@@ -417,16 +401,17 @@ def update_with_observation(particles, z):
                     dy = z[iz, 0] * s
                     d_sq = dx**2 + dy**2
                     d = np.sqrt(d_sq) # Get distance
-                    H = np.array([[dx / d, dy / d],
+                    Hj = np.array([[dx / d, dy / d],
                                    [-dy / d_sq, dx / d_sq]])
-                    H = np.linalg.inv(H) @ Q @ np.linalg.inv(H.T)
-                    particle.sigma = np.vstack((particle.sigma, H.reshape((1, 2, 2))))
+                    Hj = np.linalg.inv(Hj) @ Q @ np.linalg.inv(Hj.T)
+                    particle.sigma = np.vstack((particle.sigma, Hj.reshape((1, 2, 2))))
                 else:
                     # Update landmark
                     cj = np.argmax(wj)
                     print(cj)
                     particle.w *= c_max
-                    mu_temp, sigma_temp = update_kf_with_cholesky(particle.mu[cj], particle.sigma[cj],
+                    print(dz[cj])
+                    mu_temp, sigma_temp = update_kf_with_cholesky(particle.mu[cj].reshape((2, 1)), particle.sigma[cj],
                                                                   dz[cj], Q, H[cj])
                     particle.mu[cj] = mu_temp.T
                     particle.sigma[cj] = sigma_temp # Replace covariance matrix
@@ -561,8 +546,6 @@ def add_new_landmark(particle, z, Q_cov):
     :param Q_cov: A covariance matrix of process noise
     :return: A particle
     """
-    global ADDS
-    ADDS += 1
 
     r = z[0] # Distance
     b = z[1] # Angle
@@ -624,8 +607,6 @@ def update_landmark(particle, z, Q_cov, lm_id):
     :param Q_cov: A covariance matrix of process noise
     :return: A particle
     """
-    global UPDATES
-    UPDATES += 1
 
     # lm_id = int(z[2])
     mu = np.array(particle.mu[lm_id, 0:2]).reshape(2, 1)
@@ -829,9 +810,6 @@ class Listener(BaseListener):
         # end multiple subscribers
 
     def cones_callback(self, msg: ConeArray):
-        # Get global variables
-        global ADDS
-        global UPDATES
         # Place x y positions of cones into self.capture
         self.capture = np.array([[cone.x, cone.y] for cone in msg.cones])
         print(self.capture)
@@ -865,10 +843,6 @@ class Listener(BaseListener):
                 for i in range(len(particle.mu[:, 0])):
                     f.write('lm #' + str(i + 1) + ' -- x: ' + str(particle.mu[i, 0])
                             + ', y: ' + str(particle.mu[i, 1]) + '\n')
-            f.write('PARTICLES ADDED: ' + str(ADDS) + '\n')
-            f.write('PARTICLES UPDATED: ' + str(UPDATES) + '\n')
-            ADDS = 0
-            UPDATES = 0
             f.close()
             self.count = 0
 
