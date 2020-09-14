@@ -43,7 +43,8 @@ DThist = [] # List of DTs
 M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
 STATE_SIZE = 3  # State size [x, y, yaw]
 LM_SIZE = 2  # LM state size [x, y]
-N_PARTICLE = 10  # number of particle
+N_PARTICLE = 3  # number of particle
+THRESHOLD = 0.004 # Likelihood threshold for data association
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 PARTICLE_ITERATION = 0 # n for the nth particle production
 
@@ -258,10 +259,6 @@ def update_with_observation(particles, z):
     :param z: An observation (array of landmarks, each [dist, theta, id])
     :return: Returns updated particles
     """
-    print('UPDATING WITH OBSERVATION')
-
-    threshold = 0.004 # Likelihood threshold for data association
-
     for particle in particles:
         # If no landmarks exist yet, add all currently observed landmarks
         if (particle.mu.size == 0):
@@ -328,7 +325,7 @@ def update_with_observation(particles, z):
                 c_max = np.max(wj) # Get max likelihood
 
                 # If the cone probably hasn't been seen before, add the landmark
-                if (c_max < threshold):
+                if (c_max < THRESHOLD):
                     # Calculate sine and cosine for the landmark
                     s = np.sin(pi_2_pi(particle.x[2, 0] + z[iz, 1] - np.pi/2))
                     c = np.cos(pi_2_pi(particle.x[2, 0] + z[iz, 1] - np.pi/2))
@@ -438,7 +435,6 @@ def resampling(particles):
         ind = 0
 
         for ip in range(N_PARTICLE):
-            
             while (ind < w_cum.shape[0] - 1) \
                     and (resample_id[ip] > w_cum[ind]):
                 ind += 1
@@ -519,8 +515,6 @@ class Listener(BaseListener):
         # Get observation
         self.xTrue, self.z, self.xDR, self.ud = observation(self.xTrue, self.xDR, self.u, self.capture)
 
-        print('xEst Angle: ' + str(self.xEst[2, 0]))
-
         # Run SLAM
         self.particles = fast_slam1(self.particles, self.ud, self.z)
 
@@ -552,7 +546,6 @@ class Listener(BaseListener):
         self.hxEst = np.hstack((self.hxEst, self.x_state))
         self.hxDR = np.hstack((self.hxDR, self.xDR))
         self.hxTrue = np.hstack((self.hxTrue, self.xTrue))
-        print('Finished cones callback')
 
     def control_callback(self, msg: Twist):
         str(msg) # For some reason this is needed to access msg.linear.x
@@ -631,8 +624,8 @@ class Listener(BaseListener):
 
             #         plt.plot(x + tx, y + ty, "xg")                    
 
-        plt.plot(self.hxTrue[0, :], self.hxTrue[1, :], "-b") # Plot xTrue with solid blue line
-        plt.plot(self.hxDR[0, :], self.hxDR[1, :], "-k") # Plot dead reckoning with solid black line
+        # plt.plot(self.hxTrue[0, :], self.hxTrue[1, :], "-b") # Plot xTrue with solid blue line
+        # plt.plot(self.hxDR[0, :], self.hxDR[1, :], "-k") # Plot dead reckoning with solid black line
         plt.plot(self.hxEst[0, :], self.hxEst[1, :], "-r") # Plot xEst with solid red line
         plt.plot(self.xEst[0], self.xEst[1], "xk") # Plot current xEst as black x
         plt.axis("equal")
