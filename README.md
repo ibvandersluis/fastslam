@@ -1,10 +1,13 @@
 # FastSLAM
 
+This repository is one of two parts of my dissertation for my master's at Oxford Brookes University. See also my [repository for making BioSLAM](https://github.com/ibvandersluis/bioslam), the other part of my dissertation.
+
 ## Description
 
 This is a Python implementation of the FastSLAM algorithm for Simultaneous Localisation and Mapping (SLAM), originally proposed by Michael Montemerlo et al. in 2002.
 
 ## Requirements
+
 - Assumes an existing ROS 2 installation (Dashing or newer). If you are using a distro other than Dashing, replace 'dashing' in the following terminal commands with your distro name.
     - [Install ROS 2 Dashing](https://index.ros.org/doc/ros2/Installation/Dashing/)
 - This package also uses the following Python3 libraries:
@@ -55,6 +58,7 @@ colcon build --symlink-install
 ```
 
 ## Usage
+
 After you have run `colcon build`:
 1. Open 2 new tabs in your terminal and source the workspace in each
 
@@ -80,6 +84,7 @@ ros2 run fastslam main
 If you are interested in learning more about SLAM, here are some of the resources I have used.
 
 ### Articles
+
 - [**_Bayesian Filtering for Location Estimation_**](http://www.irisa.fr/aspi/legland/ref/fox03a.pdf) -- Dieter Fox et al., 2003
 - [**_Simultaneous Localization and Mapping (SLAM) Part I: The Essential Algorithms_**](https://people.eecs.berkeley.edu/~pabbeel/cs287-fa09/readings/Durrant-Whyte_Bailey_SLAM-tutorial-I.pdf) -- Hugh Durrant-Whyte & Tim Bailey, 2006
 - [**_Simultaneous Localization and Mapping (SLAM) Part II: State of the Art_**](https://pdfs.semanticscholar.org/27d4/6db7ed4e96944080052b761c62102f26b23f.pdf) -- Hugh Durrant-Whyte & Tim Bailey, 2006
