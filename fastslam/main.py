@@ -628,6 +628,8 @@ class Listener(BaseListener):
         plt.plot(self.hxEst[0, :], self.hxEst[1, :], "-r", label='Est. Path') # Plot xEst with solid red line
         plt.plot(self.xEst[0], self.xEst[1], "xk", label='Est. Pose') # Plot current xEst as black x
         plt.legend()
+        plt.xlabel('X distance (m)')
+        plt.ylabel('Y distance (m)')
         plt.axis("equal")
         plt.grid(True)
         plt.pause(0.001)
