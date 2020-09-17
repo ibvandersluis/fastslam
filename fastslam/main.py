@@ -16,7 +16,6 @@ import rclpy
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-import scipy.stats
 from copy import deepcopy
 from helpers.listener import BaseListener
 from helpers import shortcuts

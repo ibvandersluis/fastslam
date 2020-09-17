@@ -12,7 +12,6 @@ This is a Python implementation of the FastSLAM algorithm for Simultaneous Local
     - [Install ROS 2 Dashing](https://index.ros.org/doc/ros2/Installation/Dashing/)
 - This package also uses the following Python3 libraries:
     - NumPy
-    - SciPy
     - Matplotlib
 
 ## Installation
