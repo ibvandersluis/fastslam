@@ -29,7 +29,7 @@ from gazebo_msgs.msg import LinkStates
 shortcuts.hint()
 
 # Fast SLAM covariance
-Q = np.diag([3.0, np.deg2rad(10.0)]) ** 2 # Covariance matrix of measurement noise
+Q = np.diag([9.0, np.deg2rad(9.0)]) ** 2 # Covariance matrix of measurement noise
 R = np.diag([1.0, np.deg2rad(20.0)]) ** 2 # Covariance matrix of observation noise at time t
 
 #  Simulation parameter
@@ -42,10 +42,9 @@ DThist = [] # List of DTs
 M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
 STATE_SIZE = 3  # State size [x, y, yaw]
 LM_SIZE = 2  # LM state size [x, y]
-N_PARTICLE = 3  # number of particle
-THRESHOLD = 0.004 # Likelihood threshold for data association
+N_PARTICLE = 10  # number of particle
+THRESHOLD = 0.05 # Likelihood threshold for data association
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
-PARTICLE_ITERATION = 0 # n for the nth particle production
 
 # Definition of variables
 
@@ -111,13 +110,10 @@ class Particle:
 
         :return: Returns nothing
         """
-        global PARTICLE_ITERATION
-        PARTICLE_ITERATION += 1
-        print('Creating particle #' + str(PARTICLE_ITERATION))
         
-        self.w = 1.0 / N_PARTICLE # Particle weight
+        self.w = 1.0 / N_PARTICLE # Particle weight, initialised evenly across particles
         self.x = np.zeros((3, 1)) # State vector [x, y, theta]
-        self.mu = np.zeros((0, LM_SIZE)) # Landmark position array (the mean of the landmark EKF as x-y position)
+        self.mu = np.zeros((0, LM_SIZE)) # Landmark position array (mean of the EKF as x-y coords)
         self.sigma = np.zeros((0, LM_SIZE, LM_SIZE)) # Landmark position covariance array
         self.i = np.zeros((0, 1)) # Counter to evaluate and remove false observations
 
@@ -128,7 +124,7 @@ def fast_slam1(particles, u, z):
     :param particles: An array of particles
     :param u: The controls (velocity and orientation)
     :param z: The observation
-    :return: Returns updated particles (position and landmarks)
+    :return: Returns new particles sampled from updated particles according to weight
     """
     print('RUNNING SLAM')
 
@@ -170,7 +166,7 @@ def motion_model(x, u):
 
     :param x: The state vector [x, y, yaw]
     :param u: The input vector [Vt, Wt]
-    :return: Returns new state vector x
+    :return: Returns predicted state vector x
     """
     
     # A 3x3 identity matrix
@@ -239,7 +235,7 @@ def observation(xTrue, xd, u, data):
     z = np.zeros_like(data)
     # For each landmark compute distance and angle
     z[:, 0] = np.hypot(data[:, 0], data[:, 1])
-    z[:, 1] = pi_2_pi(np.arctan2(data[:, 1], data[:, 0]))
+    z[:, 1] = pi_2_pi(np.arctan2(data[:, 1], data[:, 0]) - np.pi/2)
 
     # Add noise to input
     ud1 = u[0, 0] + np.random.randn() * R_sim[0, 0] ** 0.5
@@ -262,8 +258,8 @@ def update_with_observation(particles, z):
         # If no landmarks exist yet, add all currently observed landmarks
         if (particle.mu.size == 0):
             # Evaluate sine and cosine values for each observation in z
-            s = np.sin(pi_2_pi(particle.x[2, 0] + z[:, 1] - np.pi/2))
-            c = np.cos(pi_2_pi(particle.x[2, 0] + z[:, 1] - np.pi/2))
+            s = np.sin(pi_2_pi(particle.x[2, 0] + z[:, 1]))
+            c = np.cos(pi_2_pi(particle.x[2, 0] + z[:, 1]))
 
             # Add new landmark locations to mu
             particle.mu = np.array([particle.x[0, 0] + z[:, 0] * c, particle.x[1, 0] + z[:, 0] * s]).T
@@ -326,8 +322,8 @@ def update_with_observation(particles, z):
                 # If the cone probably hasn't been seen before, add the landmark
                 if (c_max < THRESHOLD):
                     # Calculate sine and cosine for the landmark
-                    s = np.sin(pi_2_pi(particle.x[2, 0] + z[iz, 1] - np.pi/2))
-                    c = np.cos(pi_2_pi(particle.x[2, 0] + z[iz, 1] - np.pi/2))
+                    s = np.sin(pi_2_pi(particle.x[2, 0] + z[iz, 1]))
+                    c = np.cos(pi_2_pi(particle.x[2, 0] + z[iz, 1]))
 
                     # Add landmark location to mu
                     particle.mu = np.vstack((particle.mu, [particle.x[0, 0] + z[iz, 0] * c, particle.x[1, 0] + z[iz, 0] * s]))
@@ -501,13 +497,14 @@ class Listener(BaseListener):
     def cones_callback(self, msg: ConeArray):
         # Place x y positions of cones into self.capture
         self.capture = np.array([[cone.x, cone.y] for cone in msg.cones])
+        # self.capture = self.capture[self.capture[:, 1]>3] # Ignore inputs further than n metres
         print(self.capture)
-
         # Set time
         global DT, DThist
-        DT = (self.get_clock().now().nanoseconds - self.timer_last)
+        cur_time = self.get_clock().now().nanoseconds
+        DT = (cur_time - self.timer_last)
         DT /= 1000000000 # Nanoseconds to seconds
-        self.timer_last = self.get_clock().now().nanoseconds # Set timer_last as current nanoseconds
+        self.timer_last = cur_time # Set timer_last as current nanoseconds
         DThist.append(DT)
         print('DT -- ' + str(DT) + 's')
 
@@ -596,7 +593,7 @@ class Listener(BaseListener):
             d = self.z[i, 0] # Distance from vehicle
             theta = self.z[i, 1] # Angle of observation
 
-            angle = (theta + yaw - np.pi/2)
+            angle = (theta + yaw)
 
             tx = d * np.cos(angle)
             ty = d * np.sin(angle)
@@ -610,18 +607,6 @@ class Listener(BaseListener):
             plt.plot(self.particles[i].mu[:, 0], self.particles[i].mu[:, 1], "xb", label='Landmarks')
             # Plot location estimates as red dots
             plt.plot(self.particles[i].x[0, 0], self.particles[i].x[1, 0], ".r", label='Particle Poses')
-            # Plot expected observations of landmarks
-            # for particle in self.particles:
-            #     x = particle.x
-            #     y = particle.y
-            #     for lm in particle.lm:
-            #         d = lm[2]
-            #         theta = lm[3]
-            #         angle = theta + particle.theta
-            #         tx = d * np.cos(angle)
-            #         ty = d * np.sin(angle)
-
-            #         plt.plot(x + tx, y + ty, "xg")                    
 
         # plt.plot(self.hxTrue[0, :], self.hxTrue[1, :], "-b") # Plot xTrue with solid blue line
         # plt.plot(self.hxDR[0, :], self.hxDR[1, :], "-k") # Plot dead reckoning with solid black line
