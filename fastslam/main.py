@@ -602,15 +602,15 @@ class Listener(BaseListener):
             tx = d * np.cos(angle)
             ty = d * np.sin(angle)
 
-            plt.plot(x + tx, y + ty, "*k")
+            plt.plot(x + tx, y + ty, "*k", label='Visible Landmarks')
 
         # point_angle_line(self.xEst[0, 0], self.xEst[1, 0], self.xEst[2, 0])
 
         for i in range(N_PARTICLE):
-            # Plot location estimates as red dots
-            plt.plot(self.particles[i].x[0, 0], self.particles[i].x[1, 0], ".r")
             # Plot landmark estimates as blue X's
-            plt.plot(self.particles[i].mu[:, 0], self.particles[i].mu[:, 1], "xb")
+            plt.plot(self.particles[i].mu[:, 0], self.particles[i].mu[:, 1], "xb", label='Landmarks')
+            # Plot location estimates as red dots
+            plt.plot(self.particles[i].x[0, 0], self.particles[i].x[1, 0], ".r", label='Particle Poses')
             # Plot expected observations of landmarks
             # for particle in self.particles:
             #     x = particle.x
@@ -626,8 +626,9 @@ class Listener(BaseListener):
 
         # plt.plot(self.hxTrue[0, :], self.hxTrue[1, :], "-b") # Plot xTrue with solid blue line
         # plt.plot(self.hxDR[0, :], self.hxDR[1, :], "-k") # Plot dead reckoning with solid black line
-        plt.plot(self.hxEst[0, :], self.hxEst[1, :], "-r") # Plot xEst with solid red line
-        plt.plot(self.xEst[0], self.xEst[1], "xk") # Plot current xEst as black x
+        plt.plot(self.hxEst[0, :], self.hxEst[1, :], "-r", label='Est. Path') # Plot xEst with solid red line
+        plt.plot(self.xEst[0], self.xEst[1], "xk", label='Est. Pose') # Plot current xEst as black x
+        plt.legend()
         plt.axis("equal")
         plt.grid(True)
         plt.pause(0.001)
