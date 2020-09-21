@@ -33,7 +33,6 @@ Q = np.diag([9.0, np.deg2rad(9.0)]) ** 2 # Covariance matrix of measurement nois
 R = np.diag([1.0, np.deg2rad(20.0)]) ** 2 # Covariance matrix of observation noise at time t
 
 #  Simulation parameter
-Q_sim = np.diag([0.3, np.deg2rad(2.0)]) ** 2
 R_sim = np.diag([0.5, np.deg2rad(10.0)]) ** 2
 OFFSET_YAW_RATE_NOISE = 0.01
 
@@ -45,6 +44,8 @@ LM_SIZE = 2  # LM state size [x, y]
 N_PARTICLE = 10  # number of particle
 THRESHOLD = 0.05 # Likelihood threshold for data association
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
+CAM_ANGLE = np.pi/2 # Camera angle (radians)
+CAM_DIST = 10 # Distance for camera perception (metres)
 
 # Definition of variables
 
@@ -248,7 +249,8 @@ def observation(xTrue, xd, u, data):
 
 def update_with_observation(particles, z):
     """
-    Update particles using an observation
+    Update particles using an observation by either matching the landmark to an existing landmark
+    or by adding a new landmark
 
     :param particles: An array of particles
     :param z: An observation (array of landmarks, each [dist, theta, id])
@@ -280,7 +282,10 @@ def update_with_observation(particles, z):
             Hb = dpos_mod/np.vstack(d_sq) # Calculate [-dy / d_sq, dx / d_sq]
             H = np.vstack((zip(Ha, Hb))).reshape((d.size, 2, 2)) # Weave together
 
+            # Add covariance matrices for landmarks
             particle.sigma = np.vstack((particle.sigma, np.linalg.inv(H) @ Q @ np.linalg.inv(H.transpose((0, 2, 1)))))
+
+            particle.i = np.append(particle.i, np.full(len(z), 2))
         else:
             z_hat = np.zeros_like(particle.mu) # Initialise matrix for expected observations
             dpos = particle.mu - particle.x[0:2, 0] # Calculate dx and dy for each landmark
@@ -307,7 +312,7 @@ def update_with_observation(particles, z):
                 return 1.0
 
             # For each cone observed, determine data association and add/update
-            for iz in range(len(z[:, 0])):
+            for iz in range(len(z)):
                 dz = z_hat - z[iz] # Calculate difference between expectation and observation
                 dz[:, 1] = pi_2_pi(dz[:, 1])
                 dz = dz.reshape((len(dz[:, 0]), 2, 1)) # reshape as 3D array of 2x1 vectors
@@ -336,6 +341,7 @@ def update_with_observation(particles, z):
                                    [-dy / d_sq, dx / d_sq]])
                     Hj = np.linalg.inv(Hj) @ Q @ np.linalg.inv(Hj.T)
                     particle.sigma = np.vstack((particle.sigma, Hj.reshape((1, 2, 2))))
+                    particle.i = np.append(particle.i, 2)
 
                 # If the cone matches a previously seen landmark, update the EKF for that landmark
                 else:
@@ -345,6 +351,16 @@ def update_with_observation(particles, z):
                                                                   particle.sigma[cj], dz[cj], Q, H[cj])
                     particle.mu[cj] = mu_temp.T # Update landmark EKF mean
                     particle.sigma[cj] = sigma_temp # Replace covariance matrix
+                    particle.i[cj] += 2
+            
+            # Clean up false positives
+            expected = np.argwhere((z_hat[:, 0] < CAM_DIST) & (np.abs(z_hat[:, 1]) < CAM_ANGLE/2))
+            particle.i[expected] -= 1
+            remove = np.argwhere(particle.i < 0)
+            particle.mu = np.delete(particle.mu, remove, axis=0)
+            particle.sigma = np.delete(particle.sigma, remove, axis=0)
+            particle.i = np.delete(particle.i, remove)
+
 
     return particles
 
@@ -438,8 +454,9 @@ def resampling(particles):
         tmp_particles = particles[:]
         for i in range(len(inds)):
             particles[i].x = tmp_particles[inds[i]].x
-            particles[i].mu = tmp_particles[inds[i]].mu[:, :]
-            particles[i].sigma = tmp_particles[inds[i]].sigma[:, :]
+            particles[i].mu = tmp_particles[inds[i]].mu
+            particles[i].sigma = tmp_particles[inds[i]].sigma
+            particles[i].i = tmp_particles[inds[i]].i
             particles[i].w = 1.0 / N_PARTICLE
 
     return particles
