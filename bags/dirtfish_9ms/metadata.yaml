@@ -1,0 +1,31 @@
+rosbag2_bagfile_information:
+  version: 1
+  storage_identifier: sqlite3
+  relative_file_paths:
+    - rosbag2_2020_09_21-11_06_17.db3
+  duration:
+    nanoseconds: 54817780976
+  starting_time:
+    nanoseconds_since_epoch: 1600682777744218803
+  message_count: 8209
+  topics_with_message_count:
+    - topic_metadata:
+        name: /clock
+        type: rosgraph_msgs/msg/Clock
+        serialization_format: cdr
+      message_count: 545
+    - topic_metadata:
+        name: /cones/positions
+        type: obr_msgs/msg/ConeArray
+        serialization_format: cdr
+      message_count: 1469
+    - topic_metadata:
+        name: /gazebo/cmd_vel
+        type: geometry_msgs/msg/Twist
+        serialization_format: cdr
+      message_count: 1468
+    - topic_metadata:
+        name: /gazebo/odom
+        type: nav_msgs/msg/Odometry
+        serialization_format: cdr
+      message_count: 4727
