@@ -610,8 +610,8 @@ class Listener(BaseListener):
 
         # plt.plot(self.hxTrue[0, :], self.hxTrue[1, :], "-b") # Plot xTrue with solid blue line
         # plt.plot(self.hxDR[0, :], self.hxDR[1, :], "-k") # Plot dead reckoning with solid black line
-        plt.plot(self.hxEst[0, :], self.hxEst[1, :], "-r", label='Est. Path') # Plot xEst with solid red line
         plt.plot(self.xEst[0], self.xEst[1], "xk", label='Est. Pose') # Plot current xEst as black x
+        plt.plot(self.hxEst[0, :], self.hxEst[1, :], "-r", label='Est. Path') # Plot xEst with solid red line
         plt.legend()
         plt.title('FastSLAM 1.0')
         plt.xlabel('X distance (m)')
