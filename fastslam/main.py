@@ -116,7 +116,7 @@ class Particle:
         self.x = np.zeros((3, 1)) # State vector [x, y, theta]
         self.mu = np.zeros((0, LM_SIZE)) # Landmark position array (mean of the EKF as x-y coords)
         self.sigma = np.zeros((0, LM_SIZE, LM_SIZE)) # Landmark position covariance array
-        self.i = np.zeros((0, 1)) # Counter to evaluate and remove false observations
+        self.i = np.zeros((0, 1)) # Counter to represent confidence in each landmark
 
 def fast_slam1(particles, u, z):
     """
@@ -165,8 +165,8 @@ def motion_model(x, u):
     """
     Compute predictions for a particle
 
-    :param x: The state vector [x, y, yaw]
-    :param u: The input vector [Vt, Wt]
+    :param x: The state vector [x, y, theta]
+    :param u: The input vector [linear vel Vt, angular vel Wt]
     :return: Returns predicted state vector x
     """
     
@@ -285,7 +285,7 @@ def update_with_observation(particles, z):
             # Add covariance matrices for landmarks
             particle.sigma = np.vstack((particle.sigma, np.linalg.inv(H) @ Q @ np.linalg.inv(H.transpose((0, 2, 1)))))
 
-            particle.i = np.append(particle.i, np.full(len(z), 2))
+            particle.i = np.append(particle.i, np.full(len(z), 1))
         else:
             z_hat = np.zeros_like(particle.mu) # Initialise matrix for expected observations
             dpos = particle.mu - particle.x[0:2, 0] # Calculate dx and dy for each landmark
@@ -317,7 +317,7 @@ def update_with_observation(particles, z):
                 dz[:, 1] = pi_2_pi(dz[:, 1])
                 dz = dz.reshape((len(dz[:, 0]), 2, 1)) # reshape as 3D array of 2x1 vectors
 
-                num = np.exp(-0.5 * dz.transpose((0, 2, 1)) @ invQ @ dz)
+                num = np.exp(-0.5 * dz.transpose((0, 2, 1)) @ invQ @ dz) # Prob Robotics p. 461
                 den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj)).reshape((num.size, 1, 1))
 
                 wj = num / den # Calculate likelihoods
@@ -341,7 +341,7 @@ def update_with_observation(particles, z):
                                    [-dy / d_sq, dx / d_sq]])
                     Hj = np.linalg.inv(Hj) @ Q @ np.linalg.inv(Hj.T)
                     particle.sigma = np.vstack((particle.sigma, Hj.reshape((1, 2, 2))))
-                    particle.i = np.append(particle.i, 2)
+                    particle.i = np.append(particle.i, 1)
 
                 # If the cone matches a previously seen landmark, update the EKF for that landmark
                 else:
@@ -351,11 +351,13 @@ def update_with_observation(particles, z):
                                                                   particle.sigma[cj], dz[cj], Q, H[cj])
                     particle.mu[cj] = mu_temp.T # Update landmark EKF mean
                     particle.sigma[cj] = sigma_temp # Replace covariance matrix
-                    particle.i[cj] += 2
+                    particle.i[cj] += 2 # Increase confidence in landmark
             
-            # Clean up false positives
+            # Determine which landmarks should have been observed
             expected = np.argwhere((z_hat[:, 0] < CAM_DIST) & (np.abs(z_hat[:, 1]) < CAM_ANGLE/2))
+            # Decrease confidence by 1
             particle.i[expected] -= 1
+            # Remove all landmarks with confidence below zero
             remove = np.argwhere(particle.i < 0)
             particle.mu = np.delete(particle.mu, remove, axis=0)
             particle.sigma = np.delete(particle.sigma, remove, axis=0)
@@ -395,16 +397,16 @@ def update_kf_with_cholesky(mu, sigma, dz, Q_cov, H):
 
 def normalize_weight(particles):
     """
-    Applies Gaussian distribution to particle weights
+    Adjusts particle weights such that all weights sum to 1
 
     :param particles: An array of particles
     :return: An array of particles with reassigned weights
     """
-    sum_w = sum([p.w for p in particles])
+    sum_w = sum([p.w for p in particles]) # Get sum of particle weights
 
     try:
         for i in range(N_PARTICLE):
-            particles[i].w /= sum_w
+            particles[i].w /= sum_w # Turn weight into percentage of total particle weights
     except ZeroDivisionError:
         for i in range(N_PARTICLE):
             particles[i].w = 1.0 / N_PARTICLE
@@ -490,10 +492,10 @@ class Listener(BaseListener):
         # Generate initial particles
         self.particles = [Particle() for _ in range(N_PARTICLE)]
 
-        self.u = np.array([self.v, self.theta]).reshape(2, 1)
-        self.ud = None
-        self.z = None
-        self.count = 0
+        self.u = np.array([self.v, self.theta]).reshape(2, 1) # Control vector (velocity, yaw rate)
+        self.ud = None # u plus noise
+        self.z = None # The current observation (an array of distances and angles to cones in sight)
+        self.count = 0 # Debug counters
         self.debug = 0
 
         # Set publishers
@@ -549,7 +551,7 @@ class Listener(BaseListener):
             f.close()
             self.count = 0
 
-        # Get state estimation
+        # Get average pose x [x, y, theta] across all particles
         self.xEst = calc_final_state(self.particles)
 
         # Boundary check
@@ -561,6 +563,9 @@ class Listener(BaseListener):
         self.hxTrue = np.hstack((self.hxTrue, self.xTrue))
 
     def control_callback(self, msg: Twist):
+        """
+        Updates velocity and yaw rate to provide updated motion (u) for SLAM calculation
+        """
         str(msg) # For some reason this is needed to access msg.linear.x
         self.v = msg.linear.x
         self.theta = msg.angular.z
