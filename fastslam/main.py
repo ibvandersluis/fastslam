@@ -259,33 +259,7 @@ def update_with_observation(particles, z):
     for particle in particles:
         # If no landmarks exist yet, add all currently observed landmarks
         if (particle.mu.size == 0):
-            # Evaluate sine and cosine values for each observation in z
-            s = np.sin(pi_2_pi(particle.x[2, 0] + z[:, 1]))
-            c = np.cos(pi_2_pi(particle.x[2, 0] + z[:, 1]))
-
-            # Add new landmark locations to mu
-            particle.mu = np.array([particle.x[0, 0] + z[:, 0] * c, particle.x[1, 0] + z[:, 0] * s]).T
-
-            # Distance values
-            dpos = np.zeros_like(z)
-            dpos[:, 0] = z[:, 0] * c # dx
-            dpos[:, 1] = z[:, 0] * s # dy
-            d_sq = dpos[:, 0]**2 + dpos[:, 1]**2
-            d = np.sqrt(d_sq)
-
-            # Calculate series of H 2x2 Jacobian matrices after the formula
-            # H = np.array([[dx / d, dy / d],
-            #               [-dy / d_sq, dx / d_sq]])
-            dpos_mod = np.flip(dpos, axis=1) # Reverse dpos column order
-            dpos_mod[:, 0] = -dpos_mod[:, 0] # Negate dy column
-            Ha = dpos/np.vstack(d) # Calculate [dx / d, dy / d]
-            Hb = dpos_mod/np.vstack(d_sq) # Calculate [-dy / d_sq, dx / d_sq]
-            H = np.vstack((zip(Ha, Hb))).reshape((d.size, 2, 2)) # Weave together
-
-            # Add covariance matrices for landmarks
-            particle.sigma = np.vstack((particle.sigma, np.linalg.inv(H) @ Q @ np.linalg.inv(H.transpose((0, 2, 1)))))
-
-            particle.i = np.append(particle.i, np.full(len(z), 1))
+            particle = add_all_landmarks(particle, z)            
         else:
             z_hat = np.zeros_like(particle.mu) # Initialise matrix for expected observations
             dpos = particle.mu - particle.x[0:2, 0] # Calculate dx and dy for each landmark
@@ -392,6 +366,37 @@ def update_kf_with_cholesky(mu, sigma, dz, Q_cov, H):
     sigma -= W1 @ W1.T
 
     return mu, sigma
+
+def add_all_landmarks(particle, z):
+    # Evaluate sine and cosine values for each observation in z
+    s = np.sin(pi_2_pi(particle.x[2, 0] + z[:, 1]))
+    c = np.cos(pi_2_pi(particle.x[2, 0] + z[:, 1]))
+
+    # Add new landmark locations to mu
+    particle.mu = np.array([particle.x[0, 0] + z[:, 0] * c, particle.x[1, 0] + z[:, 0] * s]).T
+
+    # Distance values
+    dpos = np.zeros_like(z)
+    dpos[:, 0] = z[:, 0] * c # dx
+    dpos[:, 1] = z[:, 0] * s # dy
+    d_sq = dpos[:, 0]**2 + dpos[:, 1]**2
+    d = np.sqrt(d_sq)
+
+    # Calculate series of H 2x2 Jacobian matrices after the formula
+    # H = np.array([[dx / d, dy / d],
+    #               [-dy / d_sq, dx / d_sq]])
+    dpos_mod = np.flip(dpos, axis=1) # Reverse dpos column order
+    dpos_mod[:, 0] = -dpos_mod[:, 0] # Negate dy column
+    Ha = dpos/np.vstack(d) # Calculate [dx / d, dy / d]
+    Hb = dpos_mod/np.vstack(d_sq) # Calculate [-dy / d_sq, dx / d_sq]
+    H = np.vstack((zip(Ha, Hb))).reshape((d.size, 2, 2)) # Weave together
+
+    # Add covariance matrices for landmarks
+    particle.sigma = np.vstack((particle.sigma, np.linalg.inv(H) @ Q @ np.linalg.inv(H.transpose((0, 2, 1)))))
+
+    particle.i = np.append(particle.i, np.full(len(z), 1))
+
+    return particle
 
 # STEP 3: RESAMPLE
 
