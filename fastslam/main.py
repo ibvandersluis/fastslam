@@ -360,7 +360,7 @@ def add_landmarks(particle, d, angle):
     c = np.cos(pi_2_pi(particle.x[2, 0] + angle))
 
     # Add new landmark locations to mu
-    particle.mu = np.array([particle.x[0, 0] + d * c, particle.x[1, 0] + d * s]).T
+    particle.mu = np.vstack((particle.mu, np.array([particle.x[0, 0] + d * c, particle.x[1, 0] + d * s]).T))
 
     # Distance values
     dpos = np.zeros((len(d), 2))
