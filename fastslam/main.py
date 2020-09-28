@@ -259,7 +259,7 @@ def update_with_observation(particles, z):
     for particle in particles:
         # If no landmarks exist yet, add all currently observed landmarks
         if (particle.mu.size == 0):
-            particle = add_all_landmarks(particle, z)            
+            particle = add_landmarks(particle, z[:, 0], z[:, 1])            
         else:
             z_hat = np.zeros_like(particle.mu) # Initialise matrix for expected observations
             dpos = particle.mu - particle.x[0:2, 0] # Calculate dx and dy for each landmark
@@ -359,18 +359,18 @@ def update_kf_with_cholesky(mu, sigma, dz, Q_cov, H):
 
     return mu, sigma
 
-def add_all_landmarks(particle, z):
+def add_landmarks(particle, d, angle):
     # Evaluate sine and cosine values for each observation in z
-    s = np.sin(pi_2_pi(particle.x[2, 0] + z[:, 1]))
-    c = np.cos(pi_2_pi(particle.x[2, 0] + z[:, 1]))
+    s = np.sin(pi_2_pi(particle.x[2, 0] + angle))
+    c = np.cos(pi_2_pi(particle.x[2, 0] + angle))
 
     # Add new landmark locations to mu
-    particle.mu = np.array([particle.x[0, 0] + z[:, 0] * c, particle.x[1, 0] + z[:, 0] * s]).T
+    particle.mu = np.array([particle.x[0, 0] + d * c, particle.x[1, 0] + d * s]).T
 
     # Distance values
-    dpos = np.zeros_like(z)
-    dpos[:, 0] = z[:, 0] * c # dx
-    dpos[:, 1] = z[:, 0] * s # dy
+    dpos = np.zeros((len(d), 2))
+    dpos[:, 0] = d * c # dx
+    dpos[:, 1] = d * s # dy
     d_sq = dpos[:, 0]**2 + dpos[:, 1]**2
     d = np.sqrt(d_sq)
 
@@ -379,7 +379,7 @@ def add_all_landmarks(particle, z):
     # Add covariance matrices for landmarks
     particle.sigma = np.vstack((particle.sigma, np.linalg.inv(H) @ Q @ np.linalg.inv(H.transpose((0, 2, 1)))))
 
-    particle.i = np.append(particle.i, np.full(len(z), 1))
+    particle.i = np.append(particle.i, np.full(len(d), 1))
 
     return particle
 
