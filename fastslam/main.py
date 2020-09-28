@@ -253,7 +253,7 @@ def update_with_observation(particles, z):
     or by adding a new landmark
 
     :param particles: An array of particles
-    :param z: An observation (array of landmarks, each [dist, theta, id])
+    :param z: An observation (array of landmarks, each [dist, theta])
     :return: Returns updated particles
     """
     for particle in particles:
@@ -279,14 +279,9 @@ def update_with_observation(particles, z):
 
             # For each cone observed, determine data association and add/update
             for iz in range(len(z)):
-                dz = z_hat - z[iz] # Calculate difference between expectation and observation
-                dz[:, 1] = pi_2_pi(dz[:, 1])
-                dz = dz.reshape((len(dz[:, 0]), 2, 1)) # reshape as 3D array of 2x1 vectors
+                dz = calc_dz(z_hat, z[iz])
 
-                num = np.exp(-0.5 * dz.transpose((0, 2, 1)) @ invQ @ dz) # Prob Robotics p. 461
-                den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj)).reshape((num.size, 1, 1))
-
-                wj = num / den # Calculate likelihoods
+                wj = compute_likelihoods(dz, invQ, Qj)
 
                 c_max = np.max(wj) # Get max likelihood
 
@@ -403,6 +398,35 @@ def calc_H(particle, dpos, d_sq, d):
     
     return H
 
+def calc_dz(z_hat, z):
+    """
+    Compute dz, the difference between the observation expectation (z_hat) and the observation (z)
+
+    :param z_hat: An array of expected relative observations for each landmark as distance/angle pairs
+    :param z: The x-y coordinates of an observed landmark
+    """
+    dz = z_hat - z # Calculate difference between expectation and observation
+    dz[:, 1] = pi_2_pi(dz[:, 1]) # Run boundary check on angle
+    dz = dz.reshape((len(dz), 2, 1)) # reshape as 3D array of 2x1 vectors
+
+    return dz
+
+def compute_likelihoods(dz, invQ, Qj):
+    """
+    Calculates the likelihoods of a given observation matching an existing landmark
+
+    :param dz: The difference between z_hat and z
+    :param invQ: The inverse of Qj
+    :param Qj: An array of covariance matrixes
+    :return: Returns wj, a list of likelihoods for each existing landmark
+    """
+    num = np.exp(-0.5 * dz.transpose((0, 2, 1)) @ invQ @ dz) # Prob Robotics p. 461
+    den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj)).reshape((num.size, 1, 1))
+
+    wj = num / den # Calculate likelihoods
+
+    return wj
+
 # STEP 3: RESAMPLE
 
 def normalize_weight(particles):
@@ -472,8 +496,6 @@ def resampling(particles):
             particles[i].w = 1.0 / N_PARTICLE
 
     return particles
-
-# --- END CODE FROM PYTHON ROBOTICS / ATSUSHI SAKAI ---
 
 # ROS 2 Code
 class Listener(BaseListener):
