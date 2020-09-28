@@ -267,15 +267,7 @@ def update_with_observation(particles, z):
             z_hat[:, 0] = np.sqrt(d_sq)
             z_hat[:, 1] = pi_2_pi(np.arctan2(dpos[:, 1], dpos[:, 0]) - particle.x[2, 0])
 
-            # Calculate series of H 2x2 Jacobian matrices after the formula
-            # H = np.array([[dx / d, dy / d],
-            #               [-dy / d_sq, dx / d_sq]])
-            dpos_mod = np.flip(dpos, axis=1) # Reverse dpos column order
-            dpos_mod[:, 0] = -dpos_mod[:, 0] # Negate dy column
-            Ha = dpos/np.vstack((z_hat[:, 0])) # Calculate [dx / d, dy / d]
-            Hb = dpos_mod/np.vstack(d_sq) # Calculate [-dy / d_sq, dx / d_sq]
-            H = np.vstack((zip(Ha, Hb))) # Weave together
-            H = H.reshape(d_sq.size, 2, 2) # Make 3D
+            H = calc_H(particle, dpos, d_sq, z_hat[:, 0])
 
             Qj = H @ particle.sigma @ H.transpose((0, 2, 1)) + Q # Calculate covariances
 
@@ -382,14 +374,7 @@ def add_all_landmarks(particle, z):
     d_sq = dpos[:, 0]**2 + dpos[:, 1]**2
     d = np.sqrt(d_sq)
 
-    # Calculate series of H 2x2 Jacobian matrices after the formula
-    # H = np.array([[dx / d, dy / d],
-    #               [-dy / d_sq, dx / d_sq]])
-    dpos_mod = np.flip(dpos, axis=1) # Reverse dpos column order
-    dpos_mod[:, 0] = -dpos_mod[:, 0] # Negate dy column
-    Ha = dpos/np.vstack(d) # Calculate [dx / d, dy / d]
-    Hb = dpos_mod/np.vstack(d_sq) # Calculate [-dy / d_sq, dx / d_sq]
-    H = np.vstack((zip(Ha, Hb))).reshape((d.size, 2, 2)) # Weave together
+    H = calc_H(particle, dpos, d_sq, d)
 
     # Add covariance matrices for landmarks
     particle.sigma = np.vstack((particle.sigma, np.linalg.inv(H) @ Q @ np.linalg.inv(H.transpose((0, 2, 1)))))
@@ -397,6 +382,26 @@ def add_all_landmarks(particle, z):
     particle.i = np.append(particle.i, np.full(len(z), 1))
 
     return particle
+
+def calc_H(particle, dpos, d_sq, d):
+    """
+    Calculate series of H 2x2 Jacobian matrices after the formula
+            H = np.array([[dx / d, dy / d],
+                          [-dy / d_sq, dx / d_sq]])
+
+    :param particle: The particle being evaluated
+    :param dpos: An array of [dx, dy] values between the vehicle and the landmarks
+    :param d_sq: An array of squared distances to each landmark
+    :param d: An array of expected observation distances relative to the vehicle
+    :return: The Jacobian matrix H
+    """
+    dpos_mod = np.flip(dpos, axis=1) # Reverse dpos column order
+    dpos_mod[:, 0] = -dpos_mod[:, 0] # Negate dy column
+    Ha = dpos/np.vstack(d) # Calculate [dx / d, dy / d]
+    Hb = dpos_mod/np.vstack(d_sq) # Calculate [-dy / d_sq, dx / d_sq]
+    H = np.vstack((zip(Ha, Hb))).reshape(d_sq.size, 2, 2) # Weave together and make 3D
+    
+    return H
 
 # STEP 3: RESAMPLE
 
