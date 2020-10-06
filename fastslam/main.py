@@ -283,10 +283,11 @@ def update_with_observation(particles, z):
 
                 wj = compute_likelihoods(dz, invQ, Qj)
 
-                c_max = np.max(wj) # Get max likelihood
+                wj_max = np.max(wj) # Get max likelihood
 
                 # If the cone probably hasn't been seen before, add the landmark
-                if (c_max < THRESHOLD):
+                if (wj_max < THRESHOLD):
+                    # ! Attempting to place this section into a function results in strange outlier landmarks
                     # Calculate sine and cosine for the landmark
                     s = np.sin(pi_2_pi(particle.x[2, 0] + z[iz, 1]))
                     c = np.cos(pi_2_pi(particle.x[2, 0] + z[iz, 1]))
@@ -307,7 +308,7 @@ def update_with_observation(particles, z):
                 # If the cone matches a previously seen landmark, update the EKF for that landmark
                 else:
                     cj = np.argmax(wj) # Get landmark ID for highest likelihood
-                    particle.w *= c_max # Adjust particle weight
+                    particle.w *= wj_max # Adjust particle weight
                     mu_temp, sigma_temp = update_kf_with_cholesky(particle.mu[cj].reshape((2, 1)),
                                                                   particle.sigma[cj], dz[cj], Q, H[cj])
                     particle.mu[cj] = mu_temp.T # Update landmark EKF mean
