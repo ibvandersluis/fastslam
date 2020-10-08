@@ -24,7 +24,8 @@ from obr_msgs.msg import Cone, CarPos, ConeArray, IMU, Label
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import Point, Twist, Vector3
 from gazebo_msgs.msg import LinkStates
-# from ads_dv_msgs.msg import VCU2AIWheelspeeds
+
+np.set_printoptions(threshold=sys.maxsize)
 
 shortcuts.hint()
 
@@ -38,7 +39,6 @@ OFFSET_YAW_RATE_NOISE = 0.01
 
 DT = 0.0  # time tick [s]
 DThist = [] # List of DTs
-M_DIST_TH = 2.0  # Threshold of Mahalanobis distance for data association.
 STATE_SIZE = 3  # State size [x, y, yaw]
 LM_SIZE = 2  # LM state size [x, y]
 N_PARTICLE = 10  # number of particle
@@ -46,6 +46,8 @@ THRESHOLD = 0.065 # Likelihood threshold for data association
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 CAM_ANGLE = np.pi/2 # Camera angle (radians)
 CAM_DIST = 10 # Distance for camera perception (metres)
+PLOTTING = False
+DEBUGGING = False
 
 # Definition of variables
 
@@ -508,7 +510,10 @@ class Listener(BaseListener):
         self.v = 0.0 # Velocity, m/s
         self.theta = 0.0 # Yaw rate, rad/s
 
+        self.start = self.get_clock().now().nanoseconds
         self.timer_last = self.get_clock().now().nanoseconds
+        self.dt = []
+        self.elapsed = []
         self.capture = [] # For cone data from snapsot of camera
 
 
@@ -544,20 +549,25 @@ class Listener(BaseListener):
         # gets links (all objects) from gazebo
         self.link_sub = self.create_subscription(LinkStates, "/gazebo/link_states", self.link_states_callback, 10)
 
-        self.create_timer(1.0, self.timer_callback)
+        if(PLOTTING):
+            self.create_timer(1.0, self.timer_callback)
 
     def cones_callback(self, msg: ConeArray):
+        global DT, DThist
+
+        # Calculate time values
+        cur_time = self.get_clock().now().nanoseconds
+        T = (cur_time - self.start)/1000000000
+        DT = (cur_time - self.timer_last)/1000000000
+        self.timer_last = cur_time # Set timer_last as current nanoseconds
+        self.elapsed.append(T)
+        self.dt.append(DT)
+
         # Place x y positions of cones into self.capture
         self.capture = np.array([[cone.x, cone.y] for cone in msg.cones])
         # self.capture = self.capture[self.capture[:, 1]>3] # Ignore inputs further than n metres
         print(self.capture)
         # Set time
-        global DT, DThist
-        cur_time = self.get_clock().now().nanoseconds
-        DT = (cur_time - self.timer_last)
-        DT /= 1000000000 # Nanoseconds to seconds
-        self.timer_last = cur_time # Set timer_last as current nanoseconds
-        DThist.append(DT)
         print('DT -- ' + str(DT) + 's')
 
         # Get observation
@@ -569,7 +579,7 @@ class Listener(BaseListener):
         # Increment counter
         self.count += 1
         # Dump particle lm arrays to text file
-        if (self.count >= 1):
+        if ((self.count >= 1) & (DEBUGGING == True)):
             self.debug += 1
             file = 'debug' + str(self.debug) + '.txt'
             f = open(file, 'w')
@@ -580,7 +590,8 @@ class Listener(BaseListener):
                 for i in range(len(particle.mu[:, 0])):
                     f.write('lm #' + str(i + 1) + ' -- x: ' + str(particle.mu[i, 0])
                             + ', y: ' + str(particle.mu[i, 1]) + '\n')
-            f.write('DThist:\n' + str(DThist))
+            f.write('Time complexity:\n')
+            f.write(str(np.array((self.dt, self.elapsed)).T))
             f.close()
             self.count = 0
 
