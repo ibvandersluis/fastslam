@@ -47,7 +47,7 @@ THRESHOLD = 0.065 # Likelihood threshold for data association
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 CAM_ANGLE = np.pi/2 # Camera angle (radians)
 CAM_DIST = 10 # Distance for camera perception (metres)
-PLOTTING = False
+PLOTTING = True
 DEBUGGING = False
 
 # Definition of variables

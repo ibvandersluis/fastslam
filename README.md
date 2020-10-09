@@ -59,6 +59,8 @@ colcon build --symlink-install
 ## Usage
 
 After you have run `colcon build`:
+0. By default, this code will plot results but will not output any debugging files. To change this, go to `fastslam/fastslam/main.py` and set the global variable `DEBUGGING` to `True`. Running FastSLAM will then cause the code to make a folder `fastslam_debug` in the working directory and populate it with debug files. Similarly, plotting can be turned off by setting `PLOTTING` to `False`, which will considerably increase the speed of the code.
+
 1. Open 2 new tabs in your terminal and source the workspace in each
 
 ```bash
