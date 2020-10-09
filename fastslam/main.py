@@ -9,6 +9,7 @@ Starter code: Atsushi Sakai
 
 #!/usr/bin/env python3
 
+import os
 import sys
 
 import message_filters
@@ -510,10 +511,6 @@ class Listener(BaseListener):
         self.v = 0.0 # Velocity, m/s
         self.theta = 0.0 # Yaw rate, rad/s
 
-        self.start = self.get_clock().now().nanoseconds
-        self.timer_last = self.get_clock().now().nanoseconds
-        self.dt = []
-        self.elapsed = []
         self.capture = [] # For cone data from snapsot of camera
 
 
@@ -533,8 +530,15 @@ class Listener(BaseListener):
         self.u = np.array([self.v, self.theta]).reshape(2, 1) # Control vector (velocity, yaw rate)
         self.ud = None # u plus noise
         self.z = None # The current observation (an array of distances and angles to cones in sight)
-        self.count = 0 # Debug counters
-        self.debug = 0
+
+        if(DEBUGGING):
+            self.path = os.getcwd() + '/fastslam_debug'
+            try:
+                os.mkdir(self.path)
+            except:
+                pass
+            self.count = 0 # Debug counters
+            self.debug = 0
 
         # Set publishers
         self.map_pub = self.create_publisher(ConeArray, '/mapping/map', 10)
@@ -551,6 +555,12 @@ class Listener(BaseListener):
 
         if(PLOTTING):
             self.create_timer(1.0, self.timer_callback)
+
+        # Timers
+        self.dt = []
+        self.elapsed = []
+        self.start = self.get_clock().now().nanoseconds
+        self.timer_last = self.get_clock().now().nanoseconds
 
     def cones_callback(self, msg: ConeArray):
         global DT, DThist
@@ -576,24 +586,25 @@ class Listener(BaseListener):
         # Run SLAM
         self.particles = fast_slam1(self.particles, self.ud, self.z)
 
-        # Increment counter
-        self.count += 1
-        # Dump particle lm arrays to text file
-        if ((self.count >= 1) & (DEBUGGING == True)):
-            self.debug += 1
-            file = 'debug' + str(self.debug) + '.txt'
-            f = open(file, 'w')
-            pnum = 0
-            for particle in self.particles:
-                pnum += 1
-                f.write('--- Particle #' + str(pnum) + ':\n')
-                for i in range(len(particle.mu[:, 0])):
-                    f.write('lm #' + str(i + 1) + ' -- x: ' + str(particle.mu[i, 0])
-                            + ', y: ' + str(particle.mu[i, 1]) + '\n')
-            f.write('Time complexity:\n')
-            f.write(str(np.array((self.dt, self.elapsed)).T))
-            f.close()
-            self.count = 0
+        if(DEBUGGING):
+            # Increment counter
+            self.count += 1
+            # Dump particle lm arrays to text file
+            if ((self.count >= 1)):
+                self.debug += 1
+                file = 'debug' + str(self.debug) + '.txt'
+                f = open(self.path + '/' + file, 'w')
+                pnum = 0
+                for particle in self.particles:
+                    pnum += 1
+                    f.write('--- Particle #' + str(pnum) + ':\n')
+                    for i in range(len(particle.mu[:, 0])):
+                        f.write('lm #' + str(i + 1) + ' -- x: ' + str(particle.mu[i, 0])
+                                + ', y: ' + str(particle.mu[i, 1]) + '\n')
+                f.write('Time complexity:\n')
+                f.write(str(np.array((self.dt, self.elapsed)).T))
+                f.close()
+                self.count = 0
 
         # Get average pose x [x, y, theta] across all particles
         self.xEst = calc_final_state(self.particles)
