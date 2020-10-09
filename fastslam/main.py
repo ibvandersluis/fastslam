@@ -30,13 +30,14 @@ np.set_printoptions(threshold=sys.maxsize)
 
 shortcuts.hint()
 
-# Fast SLAM covariance
-Q = np.diag([9.0, np.deg2rad(9.0)]) ** 2 # Covariance matrix of measurement noise
-R = np.diag([1.0, np.deg2rad(20.0)]) ** 2 # Covariance matrix of observation noise at time t
+# Covariance matrix of measurement noise
+Q = np.diag([9.0, np.deg2rad(9.0)]) ** 2
+# Covariance matrix of observation noise at time t
+R = np.diag([1.0, np.deg2rad(20.0)]) ** 2
 
 #  Simulation parameter
 R_sim = np.diag([0.5, np.deg2rad(10.0)]) ** 2
-OFFSET_YAW_RATE_NOISE = 0.01
+OFFSET = 0.01
 
 DT = 0.0  # time tick [s]
 DThist = [] # List of DTs
@@ -58,9 +59,9 @@ DEBUGGING = False
     # u: the control vector [linear velocity, angular velocity]
     # ud: controls with noise
 
-    # z: a set of observations, each containing a vector [distance, angle]
+    # z: a set of observations, each of form [distance, angle]
     # z_hat: the predicted observation for a landmark
-    # dz: the difference between expected observation and actual observation (z - z_hat)
+    # dz: diff between expected and actual observation (z - z_hat)
 
     # xEst: the estimated true state vector of the vehicle
     # H: Jacobian matrix
@@ -72,39 +73,22 @@ DEBUGGING = False
     # dy: delta y (change in y pos)
     # dxy: a vector [dx, dy]
 
-    # Particles: a single hypothesis regarding the pose and landmark locations
+    # Particles: a single hypothesis of the pose and landmarks
         # Particle.w: the weight of the particle
         # Particle.x: the robot's pose [x, y, theta]
             # Particle.x[0, 0]: x value of pose
             # Particle.x[1, 0]: y value of pose
             # Particle.x[2, 0]: theta of pose
-        # Particle.mu: an array of EKF mean values as x-y coordinates, one for each landmark
-        # Particle.sigma: an array of 2x2 covariance matrices for landmark EKFs
-
-
-# Equations
-
-    # Calculate Qj (measurement covariance)
-        # Qj = H @ sigma @ H.T + Q
-
-    # Calculate weight
-        # num = np.exp(-0.5 * dz.T @ invQ @ dz)
-        # den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj))
-
-    # w = num / den
+        # Particle.mu: an array of EKF mean values as x-y coords
+        # Particle.sigma: array of 2x2 cov matrices for EKFs
+        # Particle.i: a measure of confidence in the landmark
 
 # --- CODE ADAPTED FROM PYTHON ROBOTICS / ATSUSHI SAKAI ---
 
 # Python Robotics
 #   https://pythonrobotics.readthedocs.io/en/latest/
-# Python Robotics: Localization
-#   https://pythonrobotics.readthedocs.io/en/latest/modules/localization.html
-# Python Robotics: SLAM
-#   https://pythonrobotics.readthedocs.io/en/latest/modules/slam.html
 # Atsushi Sakai on GitHub
 #   https://github.com/AtsushiSakai
-# FastSLAM 1.0 code (starter code used here)
-#   https://github.com/AtsushiSakai/PythonRobotics/blob/master/SLAM/FastSLAM1/fast_slam1.py
 
 class Particle:
 
@@ -115,20 +99,21 @@ class Particle:
         :return: Returns nothing
         """
         
-        self.w = 1.0 / N_PARTICLE # Particle weight, initialised evenly across particles
+        self.w = 1.0 / N_PARTICLE # Initialise weight evenly
         self.x = np.zeros((3, 1)) # State vector [x, y, theta]
-        self.mu = np.zeros((0, LM_SIZE)) # Landmark position array (mean of the EKF as x-y coords)
-        self.sigma = np.zeros((0, LM_SIZE, LM_SIZE)) # Landmark position covariance array
-        self.i = np.zeros((0, 1)) # Counter to represent confidence in each landmark
+        self.mu = np.zeros((0, LM_SIZE)) # Landmark positions
+        self.sigma = np.zeros((0, LM_SIZE, LM_SIZE)) # Covariance
+        self.i = np.zeros((0, 1)) # Tracks landmark confidence
 
 def fast_slam1(particles, u, z):
     """
-    Updates beliefs about position and landmarks using FastSLAM 1.0
+    Updates beliefs about position and landmarks using FastSLAM 1
 
     :param particles: An array of particles
     :param u: The controls (velocity and orientation)
     :param z: The observation
-    :return: Returns new particles sampled from updated particles according to weight
+    :return: Returns new particles sampled from updated
+             particles according to weight
     """
     print('RUNNING SLAM')
 
@@ -151,7 +136,7 @@ def calc_final_state(particles):
     :return: xEst, the state vector
     """
     print('CALCULATING FINAL STATE')
-    xEst = np.zeros((STATE_SIZE, 1)) # Empty state vector for: x, y, yaw
+    xEst = np.zeros((STATE_SIZE, 1)) # Empty state vector
 
     particles = normalize_weight(particles)
 
@@ -191,7 +176,7 @@ def motion_model(x, u):
 
 def predict_particles(particles, u):
     """
-    Predict x, y, yaw values for new particles
+    Predict x, y, yaw values for new particles using motion model
 
     :param particles: An array of particles
     :param u: An input vector [linear vel, angular vel]
@@ -201,7 +186,7 @@ def predict_particles(particles, u):
 
     for i in range(N_PARTICLE):
         ud = u + (np.random.randn(1, 2) @ R).T  # Add noise
-        particles[i].x = motion_model(particles[i].x, ud) # Run motion model
+        particles[i].x = motion_model(particles[i].x, ud)
 
     return particles
 
@@ -210,7 +195,7 @@ def pi_2_pi(angle):
     Ensure the angle is under +/- PI radians
 
     :param angle: Angle in radians
-    :return: Returns the angle after ensuring it is under +/- PI radians
+    :return: Returns the angle ensuring it is under +/- PI radians
     """
     return (angle + np.pi) % (2 * np.pi) - np.pi
 
@@ -242,8 +227,8 @@ def observation(xTrue, xd, u, data):
     z[:, 1] = pi_2_pi(np.arctan2(data[:, 1], data[:, 0]) - np.pi/2)
 
     # Add noise to input
-    ud1 = u[0, 0] + np.random.randn() * R_sim[0, 0] ** 0.5
-    ud2 = u[1, 0] + np.random.randn() * R_sim[1, 1] ** 0.5 + OFFSET_YAW_RATE_NOISE
+    ud1 = u[0, 0] + np.random.randn() * R_sim[0, 0]**0.5
+    ud2 = u[1, 0] + np.random.randn() * R_sim[1, 1]**0.5 + OFFSET
     ud = np.array([ud1, ud2]).reshape(2, 1)
 
     xd = motion_model(xd, ud)
@@ -252,8 +237,8 @@ def observation(xTrue, xd, u, data):
 
 def update_with_observation(particles, z):
     """
-    Update particles using an observation by either matching the landmark to an existing landmark
-    or by adding a new landmark
+    Update particles using an observation by either matching
+    the landmark to an existing landmark or by adding a new landmark
 
     :param particles: An array of particles
     :param z: An observation (array of landmarks, each [dist, theta])
@@ -264,15 +249,19 @@ def update_with_observation(particles, z):
         if (particle.mu.size == 0):
             particle = add_landmarks(particle, z[:, 0], z[:, 1])            
         else:
-            z_hat = np.zeros_like(particle.mu) # Initialise matrix for expected observations
-            dpos = particle.mu - particle.x[0:2, 0] # Calculate dx and dy for each landmark
+            z_hat = np.zeros_like(particle.mu)
+            # Calculate dx and dy for each landmark
+            dpos = particle.mu - particle.x[0:2, 0]
             d_sq = dpos[:, 0]**2 + dpos[:, 1]**2
             z_hat[:, 0] = np.sqrt(d_sq)
-            z_hat[:, 1] = pi_2_pi(np.arctan2(dpos[:, 1], dpos[:, 0]) - particle.x[2, 0])
+            z_hat[:, 1] = pi_2_pi(np.arctan2(dpos[:, 1], dpos[:, 0])
+                                  - particle.x[2, 0])
 
+            # Calculate Jacobians
             H = calc_H(particle, dpos, d_sq, z_hat[:, 0])
 
-            Qj = H @ particle.sigma @ H.transpose((0, 2, 1)) + Q # Calculate covariances
+            # Calculate covariances
+            Qj = H @ particle.sigma @ H.transpose((0, 2, 1)) + Q
 
             try:
                 invQ = np.linalg.inv(Qj)
@@ -280,7 +269,7 @@ def update_with_observation(particles, z):
                 print("singular")
                 return 1.0
 
-            # For each cone observed, determine data association and add/update
+            # For each cone observed, determine data association
             for iz in range(len(z)):
                 dz = calc_dz(z_hat, z[iz])
 
@@ -288,15 +277,18 @@ def update_with_observation(particles, z):
 
                 wj_max = np.max(wj) # Get max likelihood
 
-                # If the cone probably hasn't been seen before, add the landmark
+                # If cone hasn't been seen before, add landmark
                 if (wj_max < THRESHOLD):
-                    # ! Attempting to place this section into a function results in strange outlier landmarks
+                    # ! Attempting to place this section into a
+                    #   function results in strange outliers
                     # Calculate sine and cosine for the landmark
                     s = np.sin(pi_2_pi(particle.x[2, 0] + z[iz, 1]))
                     c = np.cos(pi_2_pi(particle.x[2, 0] + z[iz, 1]))
 
                     # Add landmark location to mu
-                    particle.mu = np.vstack((particle.mu, [particle.x[0, 0] + z[iz, 0] * c, particle.x[1, 0] + z[iz, 0] * s]))
+                    particle.mu = np.vstack((particle.mu,
+                                            [particle.x[0, 0] + z[iz, 0] * c,
+                                             particle.x[1, 0] + z[iz, 0] * s]))
 
                     dx = z[iz, 0] * c
                     dy = z[iz, 0] * s
@@ -305,21 +297,24 @@ def update_with_observation(particles, z):
                     Hj = np.array([[dx / d, dy / d],
                                    [-dy / d_sq, dx / d_sq]])
                     Hj = np.linalg.inv(Hj) @ Q @ np.linalg.inv(Hj.T)
-                    particle.sigma = np.vstack((particle.sigma, Hj.reshape((1, 2, 2))))
+                    particle.sigma = np.vstack((particle.sigma,
+                                                Hj.reshape((1, 2, 2))))
                     particle.i = np.append(particle.i, 1)
 
-                # If the cone matches a previously seen landmark, update the EKF for that landmark
+                # If the cone matches a landmark, update the EKF
                 else:
-                    cj = np.argmax(wj) # Get landmark ID for highest likelihood
+                    cj = np.argmax(wj) # Get ID for highest likelihood
                     particle.w *= wj_max # Adjust particle weight
-                    mu_temp, sigma_temp = update_kf_with_cholesky(particle.mu[cj].reshape((2, 1)),
-                                                                  particle.sigma[cj], dz[cj], Q, H[cj])
-                    particle.mu[cj] = mu_temp.T # Update landmark EKF mean
-                    particle.sigma[cj] = sigma_temp # Replace covariance matrix
+                    mu_temp, sigma_temp = update_kf_with_cholesky(
+                                        particle.mu[cj].reshape((2, 1)),
+                                        particle.sigma[cj], dz[cj], Q, H[cj])
+                    particle.mu[cj] = mu_temp.T # Update EKF mean
+                    particle.sigma[cj] = sigma_temp # Replace cov. matrix
                     particle.i[cj] += 2 # Increase confidence in landmark
             
             # Determine which landmarks should have been observed
-            expected = np.argwhere((z_hat[:, 0] < CAM_DIST) & (np.abs(z_hat[:, 1]) < CAM_ANGLE/2))
+            expected = np.argwhere((z_hat[:, 0] < CAM_DIST) &
+                                   (np.abs(z_hat[:, 1]) < CAM_ANGLE/2))
             # Decrease confidence by 1
             particle.i[expected] -= 1
             # Remove all landmarks with confidence below zero
@@ -364,7 +359,9 @@ def add_landmarks(particle, d, angle):
     c = np.cos(pi_2_pi(particle.x[2, 0] + angle))
 
     # Add new landmark locations to mu
-    particle.mu = np.vstack((particle.mu, np.array([particle.x[0, 0] + d * c, particle.x[1, 0] + d * s]).T))
+    particle.mu = np.vstack((particle.mu, np.array(
+                                [particle.x[0, 0] + d * c,
+                                 particle.x[1, 0] + d * s]).T))
 
     # Distance values
     dpos = np.zeros((len(d), 2))
@@ -376,7 +373,9 @@ def add_landmarks(particle, d, angle):
     H = calc_H(particle, dpos, d_sq, d)
 
     # Add covariance matrices for landmarks
-    particle.sigma = np.vstack((particle.sigma, np.linalg.inv(H) @ Q @ np.linalg.inv(H.transpose((0, 2, 1)))))
+    particle.sigma = np.vstack((particle.sigma, 
+                                np.linalg.inv(H) @ Q
+                                @ np.linalg.inv(H.transpose((0, 2, 1)))))
 
     particle.i = np.append(particle.i, np.full(len(d), 1))
 
@@ -389,9 +388,9 @@ def calc_H(particle, dpos, d_sq, d):
                           [-dy / d_sq, dx / d_sq]])
 
     :param particle: The particle being evaluated
-    :param dpos: An array of [dx, dy] values between the vehicle and the landmarks
+    :param dpos: An array of [dx, dy] between the vehicle and landmarks
     :param d_sq: An array of squared distances to each landmark
-    :param d: An array of expected observation distances relative to the vehicle
+    :param d: An array of expected observation distances rel. to the vehicle
     :return: The Jacobian matrix H
     """
     dpos_mod = np.flip(dpos, axis=1) # Reverse dpos column order
@@ -404,27 +403,32 @@ def calc_H(particle, dpos, d_sq, d):
 
 def calc_dz(z_hat, z):
     """
-    Compute dz, the difference between the observation expectation (z_hat) and the observation (z)
+    Compute dz, the difference between the observation
+        expectation (z_hat) and the observation (z)
 
-    :param z_hat: An array of expected relative observations for each landmark as distance/angle pairs
+    :param z_hat: An array of expected relative observations
+                  for each landmark as distance/angle pairs
     :param z: The x-y coordinates of an observed landmark
     """
-    dz = z_hat - z # Calculate difference between expectation and observation
-    dz[:, 1] = pi_2_pi(dz[:, 1]) # Run boundary check on angle
-    dz = dz.reshape((len(dz), 2, 1)) # reshape as 3D array of 2x1 vectors
+    dz = z_hat - z
+    dz[:, 1] = pi_2_pi(dz[:, 1])
+    dz = dz.reshape((len(dz), 2, 1)) # Reshape as array of 2x1 vectors
 
     return dz
 
 def compute_likelihoods(dz, invQ, Qj):
     """
-    Calculates the likelihoods of a given observation matching an existing landmark
+    Calculates the likelihoods of a given observation matching
+        an existing landmark
 
     :param dz: The difference between z_hat and z
     :param invQ: The inverse of Qj
     :param Qj: An array of covariance matrixes
     :return: Returns wj, a list of likelihoods for each existing landmark
     """
-    num = np.exp(-0.5 * dz.transpose((0, 2, 1)) @ invQ @ dz) # Prob Robotics p. 461
+
+    # Prob Robotics p. 461
+    num = np.exp(-0.5 * dz.transpose((0, 2, 1)) @ invQ @ dz)
     den = 2.0 * np.pi * np.sqrt(np.linalg.det(Qj)).reshape((num.size, 1, 1))
 
     wj = num / den # Calculate likelihoods
@@ -444,7 +448,8 @@ def normalize_weight(particles):
 
     try:
         for i in range(N_PARTICLE):
-            particles[i].w /= sum_w # Turn weight into percentage of total particle weights
+            # Turn weight into percentage of total particle weights
+            particles[i].w /= sum_w
     except ZeroDivisionError:
         for i in range(N_PARTICLE):
             particles[i].w = 1.0 / N_PARTICLE
@@ -476,7 +481,7 @@ def resampling(particles):
     n_eff = 1.0 / (pw @ pw.T)  # Effective particle number
 
     if n_eff.all() < NTH:  # Resampling
-        w_cum = np.cumsum(pw) # Cumulative weight is the sum of all particle weights
+        w_cum = np.cumsum(pw) # Sum of all particle weights
 
         base = np.cumsum(pw * 0.0 + 1 / N_PARTICLE) - 1 / N_PARTICLE
         
@@ -527,9 +532,9 @@ class Listener(BaseListener):
         # Generate initial particles
         self.particles = [Particle() for _ in range(N_PARTICLE)]
 
-        self.u = np.array([self.v, self.theta]).reshape(2, 1) # Control vector (velocity, yaw rate)
+        self.u = np.array([self.v, self.theta]).reshape(2, 1)
         self.ud = None # u plus noise
-        self.z = None # The current observation (an array of distances and angles to cones in sight)
+        self.z = None # The current observation
 
         if(DEBUGGING):
             self.path = os.getcwd() + '/fastslam_debug'
@@ -540,18 +545,11 @@ class Listener(BaseListener):
             self.count = 0 # Debug counters
             self.debug = 0
 
-        # Set publishers
-        self.map_pub = self.create_publisher(ConeArray, '/mapping/map', 10)
-        self.pose_pub = self.create_publisher(CarPos, '/mapping/position', 10)
-
         # Set subscribers
-        self.cones_sub = self.create_subscription(ConeArray, '/cones/positions', self.cones_callback, 10)
-        self.gnss_sub = self.create_subscription(NavSatFix, '/peak_gps/gps', self.gnss_callback, 10)
-        self.imu_sub = self.create_subscription(IMU, '/peak_gps/imu', self.imu_callback, 10)
-        self.control_sub = self.create_subscription(Twist, '/gazebo/cmd_vel', self.control_callback, 10)
-
-        # gets links (all objects) from gazebo
-        self.link_sub = self.create_subscription(LinkStates, "/gazebo/link_states", self.link_states_callback, 10)
+        self.cones_sub = self.create_subscription(ConeArray,
+                        '/cones/positions', self.cones_callback, 10)
+        self.control_sub = self.create_subscription(Twist,
+                        '/gazebo/cmd_vel', self.control_callback, 10)
 
         if(PLOTTING):
             self.create_timer(1.0, self.timer_callback)
@@ -569,19 +567,20 @@ class Listener(BaseListener):
         cur_time = self.get_clock().now().nanoseconds
         T = (cur_time - self.start)/1000000000
         DT = (cur_time - self.timer_last)/1000000000
-        self.timer_last = cur_time # Set timer_last as current nanoseconds
+        self.timer_last = cur_time
         self.elapsed.append(T)
         self.dt.append(DT)
 
         # Place x y positions of cones into self.capture
         self.capture = np.array([[cone.x, cone.y] for cone in msg.cones])
-        # self.capture = self.capture[self.capture[:, 1]>3] # Ignore inputs further than n metres
         print(self.capture)
-        # Set time
         print('DT -- ' + str(DT) + 's')
 
         # Get observation
-        self.xTrue, self.z, self.xDR, self.ud = observation(self.xTrue, self.xDR, self.u, self.capture)
+        self.xTrue, self.z, self.xDR, self.ud = observation(self.xTrue,
+                                                            self.xDR,
+                                                            self.u,
+                                                            self.capture)
 
         # Run SLAM
         self.particles = fast_slam1(self.particles, self.ud, self.z)
@@ -599,8 +598,10 @@ class Listener(BaseListener):
                     pnum += 1
                     f.write('--- Particle #' + str(pnum) + ':\n')
                     for i in range(len(particle.mu[:, 0])):
-                        f.write('lm #' + str(i + 1) + ' -- x: ' + str(particle.mu[i, 0])
-                                + ', y: ' + str(particle.mu[i, 1]) + '\n')
+                        f.write('lm #' + str(i + 1) + ' -- x: '
+                                + str(particle.mu[i, 0])
+                                + ', y: '
+                                + str(particle.mu[i, 1]) + '\n')
                 f.write('Time complexity:\n')
                 f.write(str(np.array((self.dt, self.elapsed)).T))
                 f.close()
@@ -619,7 +620,7 @@ class Listener(BaseListener):
 
     def control_callback(self, msg: Twist):
         """
-        Updates velocity and yaw rate to provide updated motion (u) for SLAM calculation
+        Updates velocity and yaw rate for control vector u
         """
         str(msg) # For some reason this is needed to access msg.linear.x
         self.v = msg.linear.x
@@ -628,30 +629,6 @@ class Listener(BaseListener):
 
         self.get_logger().info(f'Command confirmed: {msg.linear.x} m/s turning at {msg.angular.z} rad/s')
 
-    def gnss_callback(self, msg: NavSatFix()):
-        # Log data retrieval
-        self.get_logger().info(f'From GNSS: {msg.latitude}, {msg.longitude}')
-    
-    def imu_callback(self, msg: IMU()):
-        # Log data retrieval
-        self.get_logger().info(f'From IMU: {msg.longitudinal}, {msg.lateral}, {msg.vertical}')
-
-    def link_states_callback(self, links_msg: LinkStates):
-        cones = []
-        for name, pose in zip(links_msg.name, links_msg.pose):
-            if 'blue_cone' in name:
-                label = Label.BLUE_CONE
-            elif 'yellow_cone' in name:
-                label = Label.YELLOW_CONE
-            elif 'big_orange_cone' in name:
-                label = Label.BIG_ORANGE_CONE
-            elif 'orange_cone' in name:
-                label = Label.ORANGE_CONE
-            else:
-                # if not a cone
-                continue
-            cones.append(Cone(position=pose.position, label=Label(label=label)))
-
     def timer_callback(self):
         # Plot graph
         plt.cla()
@@ -659,8 +636,6 @@ class Listener(BaseListener):
         plt.gcf().canvas.mpl_connect(
             'key_release_event', lambda event:
             [exit(0) if event.key == 'escape' else None])
-        # Plot landmarks as black stars relative to xEst
-        # plt.plot(self.capture[:, 0] + self.xEst[0, 0], self.capture[:, 1] + self.xEst[1, 0], "*k")
         
         # Convert z observations to absolute positions and plot
         for i in range(len(self.z[:, 0])):
@@ -677,18 +652,19 @@ class Listener(BaseListener):
 
             plt.plot(x + tx, y + ty, "*k", label='Visible Landmarks')
 
-        # point_angle_line(self.xEst[0, 0], self.xEst[1, 0], self.xEst[2, 0])
-
         for i in range(N_PARTICLE):
             # Plot landmark estimates as blue X's
-            plt.plot(self.particles[i].mu[:, 0], self.particles[i].mu[:, 1], "xb", label='Landmarks')
+            plt.plot(self.particles[i].mu[:, 0], self.particles[i].mu[:, 1],
+                     "xb", label='Landmarks')
             # Plot location estimates as red dots
-            plt.plot(self.particles[i].x[0, 0], self.particles[i].x[1, 0], ".r", label='Particle Poses')
+            plt.plot(self.particles[i].x[0, 0], self.particles[i].x[1, 0],
+                     ".r", label='Particle Poses')
 
-        # plt.plot(self.hxTrue[0, :], self.hxTrue[1, :], "-b") # Plot xTrue with solid blue line
-        # plt.plot(self.hxDR[0, :], self.hxDR[1, :], "-k") # Plot dead reckoning with solid black line
-        plt.plot(self.xEst[0], self.xEst[1], "xk", label='Est. Pose') # Plot current xEst as black x
-        plt.plot(self.hxEst[0, :], self.hxEst[1, :], "-r", label='Est. Path') # Plot xEst with solid red line
+        # Plot current xEst as black x
+        plt.plot(self.xEst[0], self.xEst[1], "xk", label='Est. Pose')
+        # Plot xEst with solid red line
+        plt.plot(self.hxEst[0, :], self.hxEst[1, :], "-r", label='Est. Path')
+
         plt.legend()
         plt.title('FastSLAM 1.0')
         plt.xlabel('X distance (m)')
@@ -696,23 +672,6 @@ class Listener(BaseListener):
         plt.axis("equal")
         plt.grid(True)
         plt.pause(0.001)
-
-    # def wss_callback(self):
-        # Get WSS data
-        # msg = WheelSpeeds()
-
-        # Log data retrieval
-        # self.get_logger().info('From WSS: %s' % msg)
-
-    # def compute_pose(self):
-        
-        # Use GNSS, IMU, WSS to process location
-
-        # Publish pose to position topic
-        # self.pose_pub.publish(CarPos(position=Point(x=float(self.pos[0, 0]), y=float(self.pos[0, 1])), angle=float(self.pos[0, 2])))
-
-    # Publish to cmd: speed, steering
-    # self.cmd_pub.publish(Twist(linear=Vector3(x=float(self.speed)), angular=Vector3(z=-float(steer)))
 
 def main(args=None):
     rclpy.init(args=args)
