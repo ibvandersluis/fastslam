@@ -397,7 +397,7 @@ def calc_H(particle, dpos, d_sq, d):
     dpos_mod[:, 0] = -dpos_mod[:, 0] # Negate dy column
     Ha = dpos/np.vstack(d) # Calculate [dx / d, dy / d]
     Hb = dpos_mod/np.vstack(d_sq) # Calculate [-dy / d_sq, dx / d_sq]
-    H = np.vstack((zip(Ha, Hb))).reshape(d_sq.size, 2, 2) # Weave together and make 3D
+    H = np.vstack((zip(Ha, Hb))).reshape(d_sq.size, 2, 2) # Weave together (3D)
     
     return H
 
@@ -627,7 +627,8 @@ class Listener(BaseListener):
         self.theta = msg.angular.z
         self.u = np.array([self.v, self.theta]).reshape(2, 1)
 
-        self.get_logger().info(f'Command confirmed: {msg.linear.x} m/s turning at {msg.angular.z} rad/s')
+        self.get_logger().info(f'Moving {msg.linear.x} m/s' 
+                               + f' at {msg.angular.z} rad/s')
 
     def timer_callback(self):
         # Plot graph
