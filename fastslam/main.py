@@ -341,8 +341,8 @@ def update_ekf(mu, sigma, dz, Q_cov, H):
     W1 = PHt @ s_chol_inv
     W = W1 @ s_chol_inv.T
 
-    mu += W @ dz
-    sigma -= W1 @ W1.T
+    mu = mu + W @ dz
+    sigma = sigma - W1 @ W1.T
 
     return mu, sigma
 
