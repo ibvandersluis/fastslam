@@ -47,8 +47,8 @@ THRESHOLD = 0.065 # Likelihood threshold for data association
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 CAM_ANGLE = np.pi/2 # Camera angle (radians)
 CAM_DIST = 10 # Distance for camera perception (metres)
-PLOTTING = False
-DEBUGGING = True
+PLOTTING = True
+DEBUGGING = False
 
 # Definition of variables
 
@@ -543,6 +543,7 @@ class Listener(BaseListener):
         self.elapsed = []
         self.dt = []
         self.input_size = []
+        self.lm_maint = []
         self.start = self.get_clock().now().nanoseconds
         self.timer_last = self.get_clock().now().nanoseconds
 
@@ -556,6 +557,7 @@ class Listener(BaseListener):
         self.timer_last = cur_time
         self.elapsed.append(T)
         self.dt.append(DT)
+        self.lm_maint.append(len(self.particles[0].mu))
 
         # Place x y positions of cones into self.capture
         self.capture = np.array([[cone.x, cone.y] for cone in msg.cones])
@@ -587,7 +589,8 @@ class Listener(BaseListener):
                                 + ', y: '
                                 + str(particle.mu[i, 1]) + '\n')
                 f.write('Time complexity:\n')
-                f.write(str(np.array((self.dt, self.elapsed, self.input_size)).T))
+                f.write(str(np.array((self.elapsed, self.dt,
+                                      self.input_size, self.lm_maint)).T))
                 f.close()
                 self.count = 0
 
