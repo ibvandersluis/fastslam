@@ -194,24 +194,17 @@ def pi_2_pi(angle):
 
 # STEP 2: UPDATE
 
-def observation(xTrue, xd, u, data):
+def observation(u, data):
     """
-    Record an observation
+    Record an observation in terms of distance and angle
 
-    :param xTrue: The true state
-    :param xd: The dead reckoning state
-    :param u: Control vector: linear and angular velocity
+    :param u: Control vector (linear and angular velocity)
     :param data: The landmarks seen by the camera
     :return:
-        xTrue - The 'true' state
         z - The observation
-        xd - State with noise
         ud - Input with noise
     """
     print('MAKING OBSERVATION')
-
-    # Calc true state
-    xTrue = motion_model(xTrue, u)
 
     # Initialize np array for observed cones
     z = np.zeros_like(data)
@@ -224,9 +217,7 @@ def observation(xTrue, xd, u, data):
     ud2 = u[1, 0] + np.random.randn() * R_sim[1, 1]**0.5 + OFFSET
     ud = np.array([ud1, ud2]).reshape(2, 1)
 
-    xd = motion_model(xd, ud)
-
-    return xTrue, z, xd, ud
+    return z, ud
 
 def update_with_observation(particles, z):
     """
@@ -520,16 +511,8 @@ class Listener(BaseListener):
 
         self.capture = [] # For cone data from snapsot of camera
 
-
-        # State Vector [x y yaw]
-        self.xEst = np.zeros((STATE_SIZE, 1))  # SLAM estimation
-        self.xTrue = np.zeros((STATE_SIZE, 1))  # True state
-        self.xDR = np.zeros((STATE_SIZE, 1))  # Dead reckoning
-
-        # History
-        self.hxEst = self.xEst
-        self.hxTrue = self.xTrue
-        self.hxDR = self.xTrue
+        self.xEst = np.zeros((STATE_SIZE, 1)) # State Vector [x y yaw]
+        self.hxEst = self.xEst # History
 
         # Generate initial particles
         self.particles = [Particle() for _ in range(N_PARTICLE)]
@@ -579,10 +562,7 @@ class Listener(BaseListener):
         print('DT -- ' + str(DT) + 's')
 
         # Get observation
-        self.xTrue, self.z, self.xDR, self.ud = observation(self.xTrue,
-                                                            self.xDR,
-                                                            self.u,
-                                                            self.capture)
+        self.z, self.ud = observation(self.u, self.capture)
 
         # Run SLAM
         self.particles = fast_slam1(self.particles, self.ud, self.z)
@@ -617,8 +597,6 @@ class Listener(BaseListener):
 
         # Store data history
         self.hxEst = np.hstack((self.hxEst, self.x_state))
-        self.hxDR = np.hstack((self.hxDR, self.xDR))
-        self.hxTrue = np.hstack((self.hxTrue, self.xTrue))
 
     def control_callback(self, msg: Twist):
         """
