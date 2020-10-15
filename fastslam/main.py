@@ -32,18 +32,17 @@ shortcuts.hint()
 
 # Covariance matrix of measurement noise
 Q = np.diag([9.0, np.deg2rad(9.0)]) ** 2
-# Covariance matrix of observation noise at time t
+# Covariance matrix of control noise
 R = np.diag([1.0, np.deg2rad(20.0)]) ** 2
 
 #  Simulation parameter
 R_sim = np.diag([0.5, np.deg2rad(10.0)]) ** 2
 OFFSET = 0.01
 
-DT = 0.0  # time tick [s]
-DThist = [] # List of DTs
+DT = 0.0  # Time tick (s)
 STATE_SIZE = 3  # State size [x, y, yaw]
 LM_SIZE = 2  # LM state size [x, y]
-N_PARTICLE = 10  # number of particle
+N_PARTICLE = 10  # Number of particles
 THRESHOLD = 0.065 # Likelihood threshold for data association
 NTH = N_PARTICLE / 1.5  # Number of particle for re-sampling
 CAM_ANGLE = np.pi/2 # Camera angle (radians)
@@ -71,7 +70,7 @@ DEBUGGING = False
 
     # dx: delta x (change in x pos)
     # dy: delta y (change in y pos)
-    # dxy: a vector [dx, dy]
+    # dpos: a vector [dx, dy]
 
     # Particles: a single hypothesis of the pose and landmarks
         # Particle.w: the weight of the particle
@@ -305,7 +304,7 @@ def update_with_observation(particles, z):
                 else:
                     cj = np.argmax(wj) # Get ID for highest likelihood
                     particle.w *= wj_max # Adjust particle weight
-                    mu_temp, sigma_temp = update_kf_with_cholesky(
+                    mu_temp, sigma_temp = update_ekf(
                                         particle.mu[cj].reshape((2, 1)),
                                         particle.sigma[cj], dz[cj], Q, H[cj])
                     particle.mu[cj] = mu_temp.T # Update EKF mean
@@ -326,9 +325,9 @@ def update_with_observation(particles, z):
 
     return particles
 
-def update_kf_with_cholesky(mu, sigma, dz, Q_cov, H):
+def update_ekf(mu, sigma, dz, Q_cov, H):
     """
-    Update Kalman filter
+    Updates extended Kalman filter for landmarks
 
     :param mu: The mean of a landmark EKF
     :param sigma: The 2x2 covariance of a landmark EKF
@@ -354,6 +353,15 @@ def update_kf_with_cholesky(mu, sigma, dz, Q_cov, H):
     return mu, sigma
 
 def add_landmarks(particle, d, angle):
+    """
+    Adds a set of landmarks to the particle. Only used on first SLAM cycle
+    when no landmarks have been added.
+
+    :param particle: The particle to be updated
+    :param d: An array of distances to the landmarks
+    :param angle: An array of observation angles for the landmarks
+    :return: Returns the updated particle with landmarks added
+    """
     # Evaluate sine and cosine values for each observation in z
     s = np.sin(pi_2_pi(particle.x[2, 0] + angle))
     c = np.cos(pi_2_pi(particle.x[2, 0] + angle))
@@ -403,12 +411,12 @@ def calc_H(particle, dpos, d_sq, d):
 
 def calc_dz(z_hat, z):
     """
-    Compute dz, the difference between the observation
-        expectation (z_hat) and the observation (z)
+    Compute dz, the difference between the observation expectation
+    and the observation
 
-    :param z_hat: An array of expected relative observations
-                  for each landmark as distance/angle pairs
-    :param z: The x-y coordinates of an observed landmark
+    :param z_hat: An array of expected relative observations for each
+                  landmark as distance/angle pairs
+    :param z: The distances and angles for the observed landmarks
     """
     dz = z_hat - z
     dz[:, 1] = pi_2_pi(dz[:, 1])
@@ -418,8 +426,8 @@ def calc_dz(z_hat, z):
 
 def compute_likelihoods(dz, invQ, Qj):
     """
-    Calculates the likelihoods of a given observation matching
-        an existing landmark
+    Calculates the likelihoods of a given observation matching an existing
+    landmark
 
     :param dz: The difference between z_hat and z
     :param invQ: The inverse of Qj
@@ -561,7 +569,7 @@ class Listener(BaseListener):
         self.timer_last = self.get_clock().now().nanoseconds
 
     def cones_callback(self, msg: ConeArray):
-        global DT, DThist
+        global DT
 
         # Calculate time values
         cur_time = self.get_clock().now().nanoseconds
