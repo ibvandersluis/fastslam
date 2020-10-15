@@ -156,18 +156,12 @@ def motion_model(x, u):
     :param u: The input vector [linear vel Vt, angular vel Wt]
     :return: Returns predicted state vector x
     """
-    
-    # A 3x3 identity matrix
-    F = np.array([[1.0, 0, 0],
-                  [0, 1.0, 0],
-                  [0, 0, 1.0]])
-
-    # A 3x2 matrix to calculate new x, y, yaw given controls
+    # A 3x2 matrix to calculate change in x, y, yaw given controls
     B = np.array([[DT * np.cos(x[2, 0]), 0],
                   [DT * np.sin(x[2, 0]), 0],
                   [0.0, DT]])
 
-    x = F @ x + B @ u # Formula: X = FX + BU
+    x = x + B @ u # New pose = old pose + change in pose
 
     x[2, 0] = pi_2_pi(x[2, 0]) # Ensure Theta is under pi radians
 
