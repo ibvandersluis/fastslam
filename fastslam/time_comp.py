@@ -2130,8 +2130,8 @@ fastslam = np.array([[1.12350313e-01, 1.12383209e-01],
  [2.80623154e-01, 6.73616116e+01],
  [2.81175188e-01, 6.76427868e+01]])
 
-plt.plot(bioslam[:, 1], bioslam[:, 0], '-b', label='BioSLAM')
-plt.plot(fastslam[:, 1], fastslam[:, 0], '-c', label='FastSLAM')
+plt.plot(bioslam[:, 1], bioslam[:, 0], ':b', label='BioSLAM')
+plt.plot(fastslam[:, 1], fastslam[:, 0], '--c', label='FastSLAM')
 
 plt.legend() # Use 'loc='lower right'' to move the legend
 plt.title('Time Complexity')
