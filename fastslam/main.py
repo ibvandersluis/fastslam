@@ -2,6 +2,8 @@
 
 FastSLAM 1.0 for use with ROS 2
 
+Copyright 2020 Isaac Vander Sluis
+
 Author: Isaac Vander Sluis
 Starter code: Atsushi Sakai
 
